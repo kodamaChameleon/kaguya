@@ -29,6 +29,13 @@ License
 The project is licensed under the MIT license.
 """
 
+# Import environmental variables
+print("Importing environmental variables...")
+from modules import system
+app = system.environment()
+app.check_env("Information System Name")
+print("Complete!")
+
 # Main menu
 while True:
 
@@ -40,7 +47,7 @@ while True:
 
   # Display menu options
   print(
-    "="*28 + "[MAIN MENU]" + "="*28,
+    "\n" + "="*28 + "[MAIN MENU]" + "="*28,
     "\nChoose from the following options:",
     *[str(k) + ") " + options[k] for k in options],
     sep = "\n",
@@ -65,4 +72,5 @@ while True:
 
   # Manage STIG content
   if options[int(choice)] == 'STIG Management':
-    print("\n This function under construction.")
+    from modules import stig_management
+    stig_management
