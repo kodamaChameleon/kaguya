@@ -126,20 +126,20 @@ class stig_repo:
             r'CCI\s[\w]+',
             r'Group Policy Objects',
         }
-        for file in contents:
-            if contents[file]['href']:
+        for file in content:
+            if content[file]['href']:
 
                 # Set pdf, txt, xlsx, docx file destinations to documents path
-                ext = contents[file]['href'].rsplit(".",1)[-1].lower()
+                ext = content[file]['href'].rsplit(".",1)[-1].lower()
                 if  ext in ['pdf', 'txt', 'xlsx', 'docx'] or 'overview' in file.lower():
-                    contents[file]['destination'] = 'data/stig_repo/documents'
+                    content[file]['destination'] = 'data/stig_repo/documents'
                 
                 # Sort zip archives
                 elif ext == 'zip':
                     
                     # Locate all benchmarks
                     if 'benchmark' in file.lower():
-                        contents[file]['destination'] = 'data/stig_repo/benchmarks'
+                        content[file]['destination'] = 'data/stig_repo/benchmarks'
                     else:
                         
                         # Check if file name matches known pattern for tools
@@ -150,10 +150,10 @@ class stig_repo:
                         
                         # Set destination
                         if tool == False:
-                            contents[file]['destination'] = 'data/stig_repo/stigs'
+                            content[file]['destination'] = 'data/stig_repo/stigs'
                         elif tool == True:
-                            contents[file]['destination'] = 'data/stig_repo/tools'
+                            content[file]['destination'] = 'data/stig_repo/tools'
                             
                 # Files not able to be sorted
                 else:
-                    contents[file]['destination'] = None
+                    content[file]['destination'] = None
