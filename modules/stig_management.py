@@ -14,10 +14,19 @@ External References
 -------------------
 
 https://public.cyber.mil/
+
+As of 03 November 2022, 92% of all STIG/SCAP
+content from DoD exchange is available to the public.
+The remaining 8% requires a Common Access Card (CAC)
+to obtain. This application does not currently make
+any attempt to download the 8% non-public files.
 """
 
 # Import external libraries
 import os
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # Create STIG management menu
 class menu:
@@ -59,12 +68,13 @@ class menu:
 
             # Manage STIG content
             if options[int(choice)] == 'Download STIG Content':
-                stig_repo()
+                repo = stig_repo()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
 
     def __init__(self):
+        self.url = "https://public.cyber.mil/stigs/downloads/"
         
         # Check that folders are created
         subDirs = [
@@ -72,7 +82,78 @@ class stig_repo:
             'data/stig_repo/tools',
             'data/stig_repo/benchmarks',
             'data/stig_repo/stigs',
+            'data/stig_repo/documents'
         ]
         for dir in subDirs:
             if not os.path.exists(dir):
                 os.mkdir(dir)
+
+    # Check DoD Cyber Exchange for available downloads
+    def check_available(self):
+        r = requests.get(self.url)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        content = {}
+        for file in soup.find_all('tr',attrs={'class':'file'}):  
+            try:
+                content[file.a.text.strip()] = {
+                    'size': file.find('td',attrs={'class':'size_column'}).text.strip(),
+                    'href': file.a['href'],
+                    'date': file.find('div',attrs={'class':'av-post-date'}).text.strip(),
+                }
+            except:
+                content[file.span.text.strip()] = {
+                    'size': None,
+                    'href': None,
+                    'date': file.find('div',attrs={'class':'av-post-date'}).text.strip(),
+                }
+        
+        return content
+
+    # Sort DoD Cyber Exchange content
+    def sort_available(self, content):
+
+        """
+        Unfortunately, DoD Cyber Exchange does not have any obvious way of
+        standardizing names to better identify types of content. So here goes
+        our best effort to automate the sorting. Please advise if you feel like
+        there is a discrepancy in the sorting by reporting it at
+        https://github.com/kodamaChameleon/kaguya/issues with specific details.
+        """
+
+        knownToolsRegex = {
+            r'STIG\sViewer\s[\d]+\.[\d]+',
+            r'SCC\s[\d]+\.[\d]+\s',
+            r'CCI\s[\w]+',
+            r'Group Policy Objects',
+        }
+        for file in content:
+            if content[file]['href']:
+
+                # Set pdf, txt, xlsx, docx file destinations to documents path
+                ext = content[file]['href'].rsplit(".",1)[-1].lower()
+                if  ext in ['pdf', 'txt', 'xlsx', 'docx'] or 'overview' in file.lower():
+                    content[file]['destination'] = 'data/stig_repo/documents'
+                
+                # Sort zip archives
+                elif ext == 'zip':
+                    
+                    # Locate all benchmarks
+                    if 'benchmark' in file.lower():
+                        content[file]['destination'] = 'data/stig_repo/benchmarks'
+                    else:
+                        
+                        # Check if file name matches known pattern for tools
+                        tool = False
+                        for reg in knownToolsRegex:
+                            if re.match(reg, file):
+                                tool = True
+                        
+                        # Set destination
+                        if tool == False:
+                            content[file]['destination'] = 'data/stig_repo/stigs'
+                        elif tool == True:
+                            content[file]['destination'] = 'data/stig_repo/tools'
+                            
+                # Files not able to be sorted
+                else:
+                    content[file]['destination'] = None
