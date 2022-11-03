@@ -9,8 +9,17 @@ Security Technical Implementation Guide checklists
 and related components including but not limited to 
 STIG viewer, Security Compliance Checker (SCC) and 
 SCAP content.
+
+External References
+-------------------
+
+https://public.cyber.mil/
 """
 
+# Import external libraries
+import os
+
+# Create STIG management menu
 class menu:
 
     def __init__(self, app):
@@ -20,7 +29,7 @@ class menu:
 
             # Create menu options
             options = {
-                1: 'Something Cool',
+                1: 'Download STIG Content',
                 2: 'Back',
             }
 
@@ -49,5 +58,21 @@ class menu:
                 break
 
             # Manage STIG content
-            if options[int(choice)] == 'Something Cool':
-                print(app.env['Information System Name'])
+            if options[int(choice)] == 'Download STIG Content':
+                stig_repo()
+
+# Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
+class stig_repo:
+
+    def __init__(self):
+        
+        # Check that folders are created
+        subDirs = [
+            'data/stig_repo',
+            'data/stig_repo/tools',
+            'data/stig_repo/benchmarks',
+            'data/stig_repo/stigs',
+        ]
+        for dir in subDirs:
+            if not os.path.exists(dir):
+                os.mkdir(dir)
