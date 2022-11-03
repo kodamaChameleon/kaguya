@@ -73,4 +73,4 @@ while True:
   # Manage STIG content
   if options[int(choice)] == 'STIG Management':
     from modules import stig_management
-    stig_management
+    stig_management.menu(app)
