@@ -1,3 +1,4 @@
 # Ignore these files
-.env
+*
 # Except these files marked with !
+! .gitignore
