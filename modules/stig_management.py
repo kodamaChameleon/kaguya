@@ -26,7 +26,9 @@ any attempt to download the 8% non-public files.
 import os
 import requests
 from bs4 import BeautifulSoup
-import re
+from io import BytesIO
+from zipfile import ZipFile
+import xml.etree.ElementTree as ET
 
 # Create STIG management menu
 class menu:
@@ -69,25 +71,7 @@ class menu:
             # Manage STIG content
             if options[int(choice)] == 'Download STIG Content':
                 repo = stig_repo()
-                repo.download()
-
-# Download files using url
-def download(url: str, dest_folder: str):
-
-    filename = url.split('/')[-1].replace(" ", "_")  # be careful with file names
-    file_path = os.path.join(dest_folder, filename)
-
-    r = requests.get(url, stream=True)
-    if r.ok:
-        #print("saving to", os.path.abspath(file_path))
-        with open(file_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024 * 8):
-                if chunk:
-                    f.write(chunk)
-                    f.flush()
-                    os.fsync(f.fileno())
-    else:  # HTTP status code 4XX/5XX
-        print("Download failed: status code {}\n{}".format(r.status_code, r.text))
+                repo.inventory()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -108,7 +92,7 @@ class stig_repo:
                 os.mkdir(dir)
 
         # Store content from cyber.mil as a class element
-        self.content = self.sort_available(self.check_available())
+        self.content = self.check_available()
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
@@ -131,99 +115,75 @@ class stig_repo:
         
         return content
 
-    # Sort DoD Cyber Exchange content
-    def sort_available(self, content):
-
-        """
-        Unfortunately, DoD Cyber Exchange does not have any obvious way of
-        standardizing names to better identify types of content. So here goes
-        our best effort to automate the sorting. Please advise if you feel like
-        there is a discrepancy in the sorting by reporting it at
-        https://github.com/kodamaChameleon/kaguya/issues with specific details.
-        """
-
-        knownToolsRegex = {
-            r'STIG\sViewer\s[\d]+\.[\d]+',
-            r'SCC\s[\d]+\.[\d]+\s',
-            r'CCI\s[\w]+',
-            r'Group Policy Objects',
-            r'STIG Applicability Guide',
-        }
-        for file in content:
-            if content[file]['href']:
-
-                # Set pdf, txt, xlsx, docx file destinations to documents path
-                ext = content[file]['href'].rsplit(".",1)[-1].lower()
-                if  ext in ['pdf', 'txt', 'xlsx', 'docx'] or 'overview' in file.lower():
-                    content[file]['destination'] = 'data/stig_repo/documents/'
-                
-                # Sort zip archives
-                elif ext == 'zip':
-                    
-                    # Locate all benchmarks
-                    if 'benchmark' in file.lower():
-                        content[file]['destination'] = 'data/stig_repo/benchmarks/'
-                    else:
-                        
-                        # Check if file name matches known pattern for tools
-                        tool = False
-                        for reg in knownToolsRegex:
-                            if re.match(reg, file):
-                                tool = True
-                        
-                        # Set destination
-                        if tool == False:
-                            content[file]['destination'] = 'data/stig_repo/stigs/'
-                        elif tool == True:
-                            content[file]['destination'] = 'data/stig_repo/tools/'
-                            
-                # Files not able to be sorted
-                else:
-                    content[file]['destination'] = None
-
-            # Files not able to be sorted
-            else:
-                content[file]['destination'] = None
-        
-        return content
-
-    # Download files
-    def download(self):
-
-        # Display content
-        print("\nFILENAME" + " "*(150-len("FILENAME" )) + "SIZE" + " "*(15-len("SIZE")) + "DATE")
-        totalSize = float(0)
+    # Build a SQLite inventory of cyber.mil contents for reference
+    def inventory(self):
+    
+        print("\nMaking an inventory of contents at https://public.cyber.mil/stigs/downloads/...")
+        ptr = 0
         for i in self.content:
-            if self.content[i]['destination'] and not os.path.exists(self.content[i]['destination'] + str(self.content[i]['href']).split("/")[-1]):
-                print(str(i) + "."*(150-len(str(i))) + str(self.content[i]['size']) + "."*(15-len(str(self.content[i]['size']))) + str(self.content[i]['date']))
 
-                # Add size to total
-                size = None
-                if self.content[i]['size'][-2:].upper() == 'KB':
-                    size = float(self.content[i]['size'][:-3])/1000
-                elif self.content[i]['size'][-2:].upper() == 'MB':
-                    size = float(self.content[i]['size'][:-3])
-                elif self.content[i]['size'][-1:].upper() == 'B':
-                    size = float(self.content[i]['size'][:-2])/1000000
-                totalSize = totalSize + size
-        
-        if totalSize > 0:
-            # User prompt for download
-            opt = ""
-            while opt.lower() not in ['y', 'n']:
-                opt = input("\nDownload all (y/n)? [" + str(round(totalSize,2)) + " MB] ")
+            # Update completion status
+            ptr = ptr + 1
+            print("[" + "="*(round((ptr/len(self.content))*100)) + " "*(100 - round((ptr/len(self.content))*100)) + "]", end = "\r")
 
-            # Download content
-            if opt.lower() == 'y':
-                ptr = 0
-                for i in self.content:
-                    if self.content[i]['destination'] and not os.path.exists(self.content[i]['destination'] + str(self.content[i]['href']).split("/")[-1]):
-                        download(self.content[i]['href'], self.content[i]['destination'])
+            # Check if url provided for download
+            url = self.content[i]['href']
+            if url:
+
+                # Download and identify extension
+                r = requests.get(url, allow_redirects=True)
+                resp = r.content
+                urlExt = url.split(".")[-1].lower()
+                
+                # Parse data into content type
+                data = {
+                    'content': {},
+                    'extensions': {},
+                    'type': 'documentation',
+                }
+                
+                if urlExt == 'zip':
+                    zipData = ZipFile(BytesIO(r.content))
+                    for file in zipData.namelist():
+                        ext = file.split(".")[-1].lower()
+                        if ext in data['extensions']:
+                            data['extensions'][ext] = data['extensions'][ext] + 1
+                            data['content'][file] = {'stigId': None} 
+                        else:
+                            data['extensions'][ext] = 1
+                            data['content'][file] = {'stigId': None} 
+                else:
+                    data['extensions'][urlExt] = 1
+                    data['content'][url.split("/")[-1]] = {'stigId': None} 
                     
-                    # Update completion status
-                    ptr = ptr + 1
-                    print("[" + "="*(round((ptr/len(self.content))*100)) + " "*(100 - round((ptr/len(self.content))*100)) + "]", end = "\r")
-            
-            print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
-        else:
-            print("\nNo new content available.")
+                # Create comma separate list of names using lowercase for case insensitivty
+                names = ','.join(data['content']).lower()
+
+                # Categorize content types
+                if any(x in data['extensions'] for x in ['exe', 'rpm', 'deb', 'scc', 'msi', 'gz', 'jar']):
+                    data['type'] = 'tool'
+                elif 'xml' in data['extensions']:
+                    if 'benchmark' in names:
+                        data['type'] = 'scap_content'
+                    elif 'manual' in names:
+                        data['type'] = 'stig_content'
+                elif 'mobileconfig' in data['extensions']:
+                    data['type'] = 'stig_content'
+                elif 'zip' in data['extensions']:
+                    if any(x in names for x in ['chef', 'powershell', 'ansible']):
+                        data['type'] = 'script'
+                    elif ('manual' in  names and 'stig' in names) or data['extensions']['zip'] > 15:
+                        data['type'] = 'stig_content'
+                elif any(x in data['extensions'] for x in ['sql', 'sh','bat']):
+                    data['type'] = 'script'
+                    
+                # Add stig information if applicable
+                for c in data['content']:
+                    if c[-10:].lower() == '-xccdf.xml':
+                        xccdf = zipData.open(c).read().decode('utf-8')
+                        root = ET.fromstring(xccdf)
+                        data['content'][c]['stigId'] = root.attrib['id']
+                
+                self.content[i]['date'] = data
+        
+        print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
