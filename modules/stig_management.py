@@ -69,6 +69,25 @@ class menu:
             # Manage STIG content
             if options[int(choice)] == 'Download STIG Content':
                 repo = stig_repo()
+                repo.download()
+
+# Download files using url
+def download(url: str, dest_folder: str):
+
+    filename = url.split('/')[-1].replace(" ", "_")  # be careful with file names
+    file_path = os.path.join(dest_folder, filename)
+
+    r = requests.get(url, stream=True)
+    if r.ok:
+        #print("saving to", os.path.abspath(file_path))
+        with open(file_path, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024 * 8):
+                if chunk:
+                    f.write(chunk)
+                    f.flush()
+                    os.fsync(f.fileno())
+    else:  # HTTP status code 4XX/5XX
+        print("Download failed: status code {}\n{}".format(r.status_code, r.text))
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -87,6 +106,9 @@ class stig_repo:
         for dir in subDirs:
             if not os.path.exists(dir):
                 os.mkdir(dir)
+
+        # Store content from cyber.mil as a class element
+        self.content = self.sort_available(self.check_available())
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
@@ -125,6 +147,7 @@ class stig_repo:
             r'SCC\s[\d]+\.[\d]+\s',
             r'CCI\s[\w]+',
             r'Group Policy Objects',
+            r'STIG Applicability Guide',
         }
         for file in content:
             if content[file]['href']:
@@ -132,14 +155,14 @@ class stig_repo:
                 # Set pdf, txt, xlsx, docx file destinations to documents path
                 ext = content[file]['href'].rsplit(".",1)[-1].lower()
                 if  ext in ['pdf', 'txt', 'xlsx', 'docx'] or 'overview' in file.lower():
-                    content[file]['destination'] = 'data/stig_repo/documents'
+                    content[file]['destination'] = 'data/stig_repo/documents/'
                 
                 # Sort zip archives
                 elif ext == 'zip':
                     
                     # Locate all benchmarks
                     if 'benchmark' in file.lower():
-                        content[file]['destination'] = 'data/stig_repo/benchmarks'
+                        content[file]['destination'] = 'data/stig_repo/benchmarks/'
                     else:
                         
                         # Check if file name matches known pattern for tools
@@ -150,10 +173,57 @@ class stig_repo:
                         
                         # Set destination
                         if tool == False:
-                            content[file]['destination'] = 'data/stig_repo/stigs'
+                            content[file]['destination'] = 'data/stig_repo/stigs/'
                         elif tool == True:
-                            content[file]['destination'] = 'data/stig_repo/tools'
+                            content[file]['destination'] = 'data/stig_repo/tools/'
                             
                 # Files not able to be sorted
                 else:
                     content[file]['destination'] = None
+
+            # Files not able to be sorted
+            else:
+                content[file]['destination'] = None
+        
+        return content
+
+    # Download files
+    def download(self):
+
+        # Display content
+        print("\nFILENAME" + " "*(150-len("FILENAME" )) + "SIZE" + " "*(15-len("SIZE")) + "DATE")
+        totalSize = float(0)
+        for i in self.content:
+            if self.content[i]['destination'] and not os.path.exists(self.content[i]['destination'] + str(self.content[i]['href']).split("/")[-1]):
+                print(str(i) + "."*(150-len(str(i))) + str(self.content[i]['size']) + "."*(15-len(str(self.content[i]['size']))) + str(self.content[i]['date']))
+
+                # Add size to total
+                size = None
+                if self.content[i]['size'][-2:].upper() == 'KB':
+                    size = float(self.content[i]['size'][:-3])/1000
+                elif self.content[i]['size'][-2:].upper() == 'MB':
+                    size = float(self.content[i]['size'][:-3])
+                elif self.content[i]['size'][-1:].upper() == 'B':
+                    size = float(self.content[i]['size'][:-2])/1000000
+                totalSize = totalSize + size
+        
+        if totalSize > 0:
+            # User prompt for download
+            opt = ""
+            while opt.lower() not in ['y', 'n']:
+                opt = input("\nDownload all (y/n)? [" + str(round(totalSize,2)) + " MB] ")
+
+            # Download content
+            if opt.lower() == 'y':
+                ptr = 0
+                for i in self.content:
+                    if self.content[i]['destination'] and not os.path.exists(self.content[i]['destination'] + str(self.content[i]['href']).split("/")[-1]):
+                        download(self.content[i]['href'], self.content[i]['destination'])
+                    
+                    # Update completion status
+                    ptr = ptr + 1
+                    print("[" + "="*(round((ptr/len(self.content))*100)) + " "*(100 - round((ptr/len(self.content))*100)) + "]", end = "\r")
+            
+            print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
+        else:
+            print("\nNo new content available.")
