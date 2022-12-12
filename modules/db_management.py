@@ -95,7 +95,7 @@ class stig:
         row = self.cur.execute(q, [stigId]).fetchall()[0]
 
         # Save file
-        fileName = "data/" + row[1]
+        fileName = "exports/" + row[1]
         with open(fileName, 'wb') as f:
             f.write(row[5].encode('utf-8'))
         print("Saved content to " + fileName)
