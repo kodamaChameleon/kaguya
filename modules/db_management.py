@@ -123,5 +123,5 @@ class stig:
         # Save file
         fileName = "exports/" + row[1]
         with open(fileName, 'wb') as f:
-            f.write(row[5].encode('utf-8'))
+            f.write(row[6].encode('utf-8'))
         print("\nSaved content to " + fileName)
