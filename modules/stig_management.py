@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
+from modules import db_management
 
 # Create STIG management menu
 class menu:
@@ -41,7 +42,8 @@ class menu:
             # Create menu options
             options = {
                 1: 'Download STIG Content',
-                2: 'Back',
+                2: 'Export STIG Content',
+                3: 'Back',
             }
 
             # Display menu options
@@ -68,10 +70,20 @@ class menu:
             if options[int(choice)] == 'Back':
                 break
 
-            # Manage STIG content
+            # Download STIG content
             if options[int(choice)] == 'Download STIG Content':
+                stigDb = db_management.stig()
                 repo = stig_repo()
-                repo.inventory()
+                repo.download(stigDb)
+                stigDb.con.close()
+            
+            # Export STIG content
+            if options[int(choice)] == 'Export STIG Content':
+                stigDb = db_management.stig()
+                selection = stigDb.select_content()
+                print(selection)
+                if selection:
+                    stigDb.export_content(selection)
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -116,10 +128,11 @@ class stig_repo:
         return content
 
     # Build a SQLite inventory of cyber.mil contents for reference
-    def inventory(self):
+    def download(self, stigDb):
     
-        print("\nMaking an inventory of contents at https://public.cyber.mil/stigs/downloads/...")
+        print("\nDownloading xccdf content from https://public.cyber.mil/stigs/downloads/...")
         ptr = 0
+        data = []
         for i in self.content:
 
             # Update completion status
@@ -131,59 +144,32 @@ class stig_repo:
             if url:
 
                 # Download and identify extension
-                r = requests.get(url, allow_redirects=True)
-                resp = r.content
+                r = requests.get(url, allow_redirects=False)
                 urlExt = url.split(".")[-1].lower()
-                
-                # Parse data into content type
-                data = {
-                    'content': {},
-                    'extensions': {},
-                    'type': 'documentation',
-                }
                 
                 if urlExt == 'zip':
                     zipData = ZipFile(BytesIO(r.content))
                     for file in zipData.namelist():
-                        ext = file.split(".")[-1].lower()
-                        if ext in data['extensions']:
-                            data['extensions'][ext] = data['extensions'][ext] + 1
-                            data['content'][file] = {'stigId': None} 
-                        else:
-                            data['extensions'][ext] = 1
-                            data['content'][file] = {'stigId': None} 
-                else:
-                    data['extensions'][urlExt] = 1
-                    data['content'][url.split("/")[-1]] = {'stigId': None} 
-                    
-                # Create comma separate list of names using lowercase for case insensitivty
-                names = ','.join(data['content']).lower()
+                        if file.split(".")[-1].lower() == 'xml' and 'xccdf' in file.lower():
+                            xccdf = zipData.open(file).read().decode('utf-8')
+                            root = ET.fromstring(xccdf)
 
-                # Categorize content types
-                if any(x in data['extensions'] for x in ['exe', 'rpm', 'deb', 'scc', 'msi', 'gz', 'jar']):
-                    data['type'] = 'tool'
-                elif 'xml' in data['extensions']:
-                    if 'benchmark' in names:
-                        data['type'] = 'scap_content'
-                    elif 'manual' in names:
-                        data['type'] = 'stig_content'
-                elif 'mobileconfig' in data['extensions']:
-                    data['type'] = 'stig_content'
-                elif 'zip' in data['extensions']:
-                    if any(x in names for x in ['chef', 'powershell', 'ansible']):
-                        data['type'] = 'script'
-                    elif ('manual' in  names and 'stig' in names) or data['extensions']['zip'] > 15:
-                        data['type'] = 'stig_content'
-                elif any(x in data['extensions'] for x in ['sql', 'sh','bat']):
-                    data['type'] = 'script'
-                    
-                # Add stig information if applicable
-                for c in data['content']:
-                    if c[-10:].lower() == '-xccdf.xml':
-                        xccdf = zipData.open(c).read().decode('utf-8')
-                        root = ET.fromstring(xccdf)
-                        data['content'][c]['stigId'] = root.attrib['id']
-                
-                self.content[i]['date'] = data
-        
+                            # Determine if SCAP or STIG content
+                            if 'manual' in file.lower():
+                                fileType = 'manual'
+                            elif 'benchmark' in file.lower():
+                                fileType = 'benchmark'
+
+                            # Insert row into database
+                            row = {
+                                'stigId': root.attrib['id'],
+                                'fileName': file.split("/")[-1],
+                                'href': url,
+                                'date': self.content[i]['date'],
+                                'fileType': fileType,
+                                'fileContent': xccdf,
+                            }
+                            data.append(row)
+
+        stigDb.update_content(data)
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
