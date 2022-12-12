@@ -28,6 +28,11 @@ Kaguya-hime (かぐや姫) is the moon princess from Japanese folklore, The Tale
 
 *\*see https://en.wikipedia.org/wiki/The_Tale_of_the_Bamboo_Cutter*
 
+STIG Management
+--------
+
+Utilizing the STIG Management features helps ensure that you are always utilizing the latest and greates STIG and SCAP content.
+
 License
 -------
 
