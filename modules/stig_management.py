@@ -41,7 +41,7 @@ class menu:
 
             # Create menu options
             options = {
-                1: 'Download STIG Content',
+                1: 'Download STIG Content (Internet Required)',
                 2: 'Export STIG Content',
                 3: 'Back',
             }
@@ -71,7 +71,7 @@ class menu:
                 break
 
             # Download STIG content
-            if options[int(choice)] == 'Download STIG Content':
+            if options[int(choice)] == 'Download STIG Content (Internet Required)':
                 stigDb = db_management.stig()
                 repo = stig_repo()
                 repo.download(stigDb)
