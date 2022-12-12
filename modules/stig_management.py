@@ -84,6 +84,7 @@ class menu:
                 print(selection)
                 if selection:
                     stigDb.export_content(selection)
+                stigDb.con.close()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -143,33 +144,66 @@ class stig_repo:
             url = self.content[i]['href']
             if url:
 
-                # Download and identify extension
-                r = requests.get(url, allow_redirects=False)
-                urlExt = url.split(".")[-1].lower()
-                
-                if urlExt == 'zip':
-                    zipData = ZipFile(BytesIO(r.content))
-                    for file in zipData.namelist():
-                        if file.split(".")[-1].lower() == 'xml' and 'xccdf' in file.lower():
-                            xccdf = zipData.open(file).read().decode('utf-8')
-                            root = ET.fromstring(xccdf)
+                # Check if content needs updating
+                update = stigDb.check_updates(i, self.content[i]['date'])
+                if update:
 
-                            # Determine if SCAP or STIG content
-                            if 'manual' in file.lower():
-                                fileType = 'manual'
-                            elif 'benchmark' in file.lower():
-                                fileType = 'benchmark'
+                    # Download and identify extension
+                    r = requests.get(url, allow_redirects=False)
+                    urlExt = url.split(".")[-1].lower()
+                    row = {}
+                    
+                    if urlExt == 'zip':
+                        zipData = ZipFile(BytesIO(r.content))
+                        stig_content = False
+                        for file in zipData.namelist():
+                            if file.split(".")[-1].lower() == 'xml' and 'xccdf' in file.lower():
+                                stig_content = True
+                                xccdf = zipData.open(file).read().decode('utf-8')
+                                root = ET.fromstring(xccdf)
 
-                            # Insert row into database
+                                # Determine if SCAP or STIG content
+                                if 'manual' in file.lower():
+                                    fileType = 'manual'
+                                elif 'benchmark' in file.lower():
+                                    fileType = 'benchmark'
+
+                                # Insert row into database
+                                row = {
+                                    'stigId': root.attrib['id'],
+                                    'fileName': file.split("/")[-1],
+                                    'zipFolder': i,
+                                    'href': url,
+                                    'date': self.content[i]['date'],
+                                    'fileType': fileType,
+                                    'fileContent': xccdf,
+                                }
+                                data.append(row)
+                        
+                        # Create entry to remember non-STIG/SCAP content
+                        if stig_content == False:
                             row = {
-                                'stigId': root.attrib['id'],
-                                'fileName': file.split("/")[-1],
+                                'stigId': None,
+                                'fileName': None,
+                                'zipFolder': i,
                                 'href': url,
                                 'date': self.content[i]['date'],
-                                'fileType': fileType,
-                                'fileContent': xccdf,
+                                'fileType': None,
+                                'fileContent': None,
                             }
                             data.append(row)
+
+                    else:
+                        row = {
+                            'stigId': None,
+                            'fileName': None,
+                            'zipFolder': i,
+                            'href': url,
+                            'date': self.content[i]['date'],
+                            'fileType': None,
+                            'fileContent': None,
+                        }
+                        data.append(row)
 
         stigDb.update_content(data)
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")

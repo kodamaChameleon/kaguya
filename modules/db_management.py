@@ -31,6 +31,7 @@ class stig:
         CREATE TABLE IF NOT EXISTS xccdf_content(
             [stigId] TEXT PRIMARY KEY,
             [fileName] TEXT,
+            [zipFolder] TEXT,
             [href] TEXT,
             [date] TEXT,
             [fileType] TEXT,
@@ -49,6 +50,7 @@ class stig:
             INSERT OR REPLACE INTO xccdf_content VALUES(
                 :stigId,
                 :fileName,
+                :zipFolder,
                 :href,
                 :date,
                 :fileType,
@@ -65,7 +67,8 @@ class stig:
 
         q = """
         SELECT stigId from xccdf_content
-        WHERE stigId LIKE "%_XXX_%"
+        WHERE [stigId] LIKE "%_XXX_%"
+        AND [fileContent] IS NOT NULL
         """.replace('_XXX_',search)
         options = [opt for sublist in self.cur.execute(q).fetchall() for opt in sublist] + [None]
 
@@ -83,6 +86,29 @@ class stig:
         stigId = options[choice-1]
 
         return stigId
+
+    # Check if new updates available
+    def check_updates(self, zipFolder, date):
+        
+        # Query database for matching zipFolder
+        data = {
+            'zipFolder': zipFolder,
+            'date': date,
+        }
+        q = """
+        SELECT zipFolder, date FROM xccdf_content
+        WHERE [zipFolder] = :zipFolder
+        AND [date] = :date
+        """
+        results = self.cur.execute(q, data).fetchall()
+
+        # If results are returned, then local db matches online content
+        if results:
+            update = False
+        else:
+            update = True
+        
+        return update
     
     # Export content based on stigId
     def export_content(self, stigId):
