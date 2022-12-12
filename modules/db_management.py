@@ -124,4 +124,4 @@ class stig:
         fileName = "exports/" + row[1]
         with open(fileName, 'wb') as f:
             f.write(row[5].encode('utf-8'))
-        print("Saved content to " + fileName)
+        print("\nSaved content to " + fileName)
