@@ -207,3 +207,143 @@ class stig_repo:
 
         stigDb.update_content(data)
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
+
+## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
+## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
+def find_between( s, first, last ):
+    try:
+        start = s.index( first ) + len( first )
+        end = s.index( last, start )
+        return s[start:end]
+    except ValueError:
+        return ""
+# Credit for the find_between function goes to pkeech at https://github.com/pkeech/stig_parser
+
+
+# Parse all components of xccdf into a dictionary file
+def parse_xccdf(raw):
+    
+    # Prep for building dictionary
+    root = ET.fromstring(raw)
+    nameSpace = {
+        'xmlns': '{http://checklists.nist.gov/xccdf/1.1}',
+        'dc': '{http://purl.org/dc/elements/1.1/}',
+        'xhtml': '{http://www.w3.org/XML/1998/namespace}'
+    }
+    
+    # Handle non-standard elements
+    try:
+        description = root.find(nameSpace['xmlns'] + 'description').text
+    except AttributeError:
+        description = None
+    try:
+        generator = root.find(".//*[@id='generator']").text
+    except AttributeError:
+        generator = None
+    try:
+        conventionsVersion = root.find(".//*[@id='conventionsVersion']").text
+    except AttributeError:
+        conventionsVersion = None
+    
+    # Add static data
+    xccdfDict = {
+        'benchmark': {
+            'id': root.attrib['id'],
+            'lang': root.attrib[nameSpace['xhtml'] + 'lang'],
+        },
+        'status': {
+            'date': root.find(nameSpace['xmlns'] + 'status').attrib['date'],
+            'result': root.find(nameSpace['xmlns'] + 'status').text,
+        },
+        'title': root.find(nameSpace['xmlns'] + 'title').text,
+        'description': description,
+        'reference': {
+            'publisher': root.find(nameSpace['xmlns'] + 'reference').find(nameSpace['dc'] + 'publisher').text,
+            'source': root.find(nameSpace['xmlns'] + 'reference').find(nameSpace['dc'] + 'source').text,
+        },
+        'release-info': root.find(".//*[@id='release-info']").text,
+        'generator': generator,
+        'conventionsVersion': conventionsVersion,
+        'version': root.find(nameSpace['xmlns'] + 'version').text,
+        'group': {}
+    }
+    
+    # Add profile data
+    for p in root.findall(nameSpace['xmlns'] + 'Profile'):
+        profile = p.attrib['id']
+        xccdfDict[profile] = {
+            'title': p.find(nameSpace['xmlns'] + 'title').text,
+            'description': p.find(nameSpace['xmlns'] + 'description').text,
+            'selected': {}
+        }
+        for child in p.findall(nameSpace['xmlns'] + 'select'):
+            xccdfDict[profile]['selected'][child.attrib['idref']] = child.attrib['selected']
+            
+    # Add group data
+    for g in root.findall(nameSpace['xmlns'] + 'Group'):
+        vulnId = g.attrib['id']
+
+        # Add static content
+        xccdfDict['group'][vulnId] = {
+            'title': g.find(nameSpace['xmlns'] + 'title').text,
+            'description': g.find(nameSpace['xmlns'] + 'description').text,
+            'rule': {},
+        }
+        
+
+        # Add rule id info
+        for a in g.find(nameSpace['xmlns'] + 'Rule').attrib:
+            xccdfDict['group'][vulnId]['rule'][a] = g.find(nameSpace['xmlns'] + 'Rule').attrib[a]
+
+        # Add rule child elements
+        for r in g.findall(nameSpace['xmlns'] + 'Rule'):
+            
+            # Handle exceptions
+            try:
+                check_content = r.find(nameSpace['xmlns'] + 'check/' + nameSpace['xmlns'] + 'check-content').text
+            except AttributeError:
+                check_content = None
+            
+            description = r.find(nameSpace['xmlns'] + 'description').text
+            xccdfDict['group'][vulnId]['rule'] = {
+                'version': r.find(nameSpace['xmlns'] + 'version').text,
+                'title': r.find(nameSpace['xmlns'] + 'title').text,
+                'description': {
+                    'VulnDiscussion': find_between(description, "<VulnDiscussion>", "</VulnDiscussion>"),
+                    'FalsePositives': find_between(description, "<FalsePositives>", "</FalsePositives>"),
+                    'FalseNegatives': find_between(description, "<FalseNegatives>", "</FalseNegatives>"),
+                    'Documentable': find_between(description, "<Documentable>", "</Documentable>"),
+                    'Mitigations': find_between(description, "<Mitigations>", "</Mitigations>"),
+                    'SeverityOverrideGuidance': find_between(description, "<SeverityOverrideGuidance>", "</SeverityOverrideGuidance>"),
+                    'PotentialImpacts': find_between(description, "<PotentialImpacts>", "</PotentialImpacts>"),
+                    'ThirdPartyTools': find_between(description, "<ThirdPartyTools>", "</ThirdPartyTools>"),
+                    'MitigationControl': find_between(description, "<MitigationControl>", "</MitigationControl>"),
+                    'Responsibility': find_between(description, "<Responsibility>", "</Responsibility>"),
+                    'IAControls': find_between(description, "<IAControls>", "</IAControls>"),
+                },
+                'reference': {},
+                'legacyId': [],
+                'CCI': [],
+                'fixref': r.find(nameSpace['xmlns'] + 'fixtext').attrib['fixref'],
+                'fixtext': r.find(nameSpace['xmlns'] + 'fixtext').text,
+                'check': {
+                    'ref': r.find(nameSpace['xmlns'] + 'check/' + nameSpace['xmlns'] + 'check-content-ref').attrib['href'],
+                    'content': check_content,
+                }
+            }
+                    
+            # Add reference child elements
+            try:
+                for child in r.find(nameSpace['xmlns'] + 'reference'):
+                    xccdfDict['group'][vulnId]['rule']['reference'][child.tag.split("}")[-1]] = child.text
+            except TypeError:
+                 xccdfDict['group'][vulnId]['rule']['reference'] = None
+
+            # Add legacy Ids and CCI
+            for i in r.findall(nameSpace['xmlns'] + 'ident'):
+                if i.text[:4].lower() == 'cci-':
+                    xccdfDict['group'][vulnId]['rule']['CCI'].append(i.text)
+                else:
+                    xccdfDict['group'][vulnId]['rule']['legacyId'].append(i.text)
+    
+    return xccdfDict
