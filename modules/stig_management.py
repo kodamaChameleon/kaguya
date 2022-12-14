@@ -44,7 +44,8 @@ class menu:
             options = {
                 1: 'Download STIG Content (Internet Required)',
                 2: 'Export STIG Content',
-                3: 'Back',
+                3: 'Create STIG Checklist',
+                4: 'Back',
             }
 
             # Display menu options
@@ -82,9 +83,18 @@ class menu:
             if options[int(choice)] == 'Export STIG Content':
                 stigDb = db_management.stig()
                 selection = stigDb.select_content()
-                print(selection)
                 if selection:
+                    print('\n' + selection)
                     stigDb.export_xccdf(selection)
+                stigDb.con.close()
+
+            # Create STIG checklist from content in stig.db
+            if options[int(choice)] == 'Create STIG Checklist':
+                stigDb = db_management.stig()
+                selection = stigDb.select_content()
+                if selection:
+                    print('\n' + selection)
+                    # Create a checklist
                 stigDb.con.close()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
@@ -92,18 +102,6 @@ class stig_repo:
 
     def __init__(self):
         self.url = "https://public.cyber.mil/stigs/downloads/"
-        
-        # Check that folders are created
-        subDirs = [
-            'data/stig_repo',
-            'data/stig_repo/tools',
-            'data/stig_repo/benchmarks',
-            'data/stig_repo/stigs',
-            'data/stig_repo/documents'
-        ]
-        for dir in subDirs:
-            if not os.path.exists(dir):
-                os.mkdir(dir)
 
         # Store content from cyber.mil as a class element
         self.content = self.check_available()
