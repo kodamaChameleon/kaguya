@@ -221,7 +221,7 @@ def find_between( s, first, last ):
 
 
 # Parse all components of xccdf into a dictionary file
-def parse_xccdf(raw):
+def parse_xccdf(raw, filename):
     
     # Prep for building dictionary
     root = ET.fromstring(raw)
@@ -246,7 +246,8 @@ def parse_xccdf(raw):
         conventionsVersion = None
     
     # Add static data
-    xccdfDict = {
+    xccdf_dict = {
+        'filename': filename,
         'benchmark': {
             'id': root.attrib['id'],
             'lang': root.attrib[nameSpace['xhtml'] + 'lang'],
@@ -271,29 +272,24 @@ def parse_xccdf(raw):
     # Add profile data
     for p in root.findall(nameSpace['xmlns'] + 'Profile'):
         profile = p.attrib['id']
-        xccdfDict[profile] = {
+        xccdf_dict[profile] = {
             'title': p.find(nameSpace['xmlns'] + 'title').text,
             'description': p.find(nameSpace['xmlns'] + 'description').text,
             'selected': {}
         }
         for child in p.findall(nameSpace['xmlns'] + 'select'):
-            xccdfDict[profile]['selected'][child.attrib['idref']] = child.attrib['selected']
+            xccdf_dict[profile]['selected'][child.attrib['idref']] = child.attrib['selected']
             
     # Add group data
     for g in root.findall(nameSpace['xmlns'] + 'Group'):
         vulnId = g.attrib['id']
 
         # Add static content
-        xccdfDict['group'][vulnId] = {
+        xccdf_dict['group'][vulnId] = {
             'title': g.find(nameSpace['xmlns'] + 'title').text,
             'description': g.find(nameSpace['xmlns'] + 'description').text,
             'rule': {},
         }
-        
-
-        # Add rule id info
-        for a in g.find(nameSpace['xmlns'] + 'Rule').attrib:
-            xccdfDict['group'][vulnId]['rule'][a] = g.find(nameSpace['xmlns'] + 'Rule').attrib[a]
 
         # Add rule child elements
         for r in g.findall(nameSpace['xmlns'] + 'Rule'):
@@ -305,7 +301,7 @@ def parse_xccdf(raw):
                 check_content = None
             
             description = r.find(nameSpace['xmlns'] + 'description').text
-            xccdfDict['group'][vulnId]['rule'] = {
+            xccdf_dict['group'][vulnId]['rule'] = {
                 'version': r.find(nameSpace['xmlns'] + 'version').text,
                 'title': r.find(nameSpace['xmlns'] + 'title').text,
                 'description': {
@@ -331,19 +327,23 @@ def parse_xccdf(raw):
                     'content': check_content,
                 }
             }
-                    
+            
+            # Add rule id info
+            for a in g.find(nameSpace['xmlns'] + 'Rule').attrib:
+                xccdf_dict['group'][vulnId]['rule'][a] = g.find(nameSpace['xmlns'] + 'Rule').attrib[a]
+            
             # Add reference child elements
             try:
                 for child in r.find(nameSpace['xmlns'] + 'reference'):
-                    xccdfDict['group'][vulnId]['rule']['reference'][child.tag.split("}")[-1]] = child.text
+                    xccdf_dict['group'][vulnId]['rule']['reference'][child.tag.split("}")[-1]] = child.text
             except TypeError:
-                 xccdfDict['group'][vulnId]['rule']['reference'] = None
+                 xccdf_dict['group'][vulnId]['rule']['reference'] = None
 
             # Add legacy Ids and CCI
             for i in r.findall(nameSpace['xmlns'] + 'ident'):
                 if i.text[:4].lower() == 'cci-':
-                    xccdfDict['group'][vulnId]['rule']['CCI'].append(i.text)
+                    xccdf_dict['group'][vulnId]['rule']['CCI'].append(i.text)
                 else:
-                    xccdfDict['group'][vulnId]['rule']['legacyId'].append(i.text)
+                    xccdf_dict['group'][vulnId]['rule']['legacyId'].append(i.text)
     
-    return xccdfDict
+    return xccdf_dict
