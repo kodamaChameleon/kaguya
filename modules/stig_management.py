@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 from io import BytesIO
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
+import uuid
 from modules import db_management
 
 # Create STIG management menu
@@ -347,3 +348,135 @@ def parse_xccdf(raw, filename):
                     xccdf_dict['group'][vulnId]['rule']['legacyId'].append(i.text)
     
     return xccdf_dict
+
+# Create checklist from parsed xccdf file
+def generate_ckl(xccdf_dict, host_data=None, version = '2.17'):
+    
+    # Set default asset information
+    if host_data == None:
+        host_data = {
+            'ROLE': 'None',
+            'ASSET_TYPE': 'Computing',
+            'MARKING': 'CUI',
+            'HOST_NAME': '',
+            'HOST_IP': '',
+            'HOST_MAC': '',
+            'HOST_FQDN': '',
+            'TARGET_COMMENT': '',
+            'TECH_AREA': '',
+            'TARGET_KEY': '4072',
+            'WEB_OR_DATABASE': 'false',
+            'WEB_DB_SITE': '',
+            'WEB_DB_INSTANCE': '',
+        }
+    
+    # Create xml structure
+    CHECKLIST = ET.Element('CHECKLIST')
+    ASSET = ET.SubElement(CHECKLIST, 'ASSET')
+    
+    ## GENERATE asset ELEMENTS
+    for element in host_data:
+        ET.SubElement(ASSET, element).text = host_data[element]
+    
+    # Generate STIG, ISTIG, STIG_INFO ELEMENTS
+    STIGS = ET.SubElement(CHECKLIST, 'STIGS')
+    ISTIG = ET.SubElement(STIGS, 'iSTIG')
+    STIG_INFO = ET.SubElement(ISTIG, 'STIG_INFO')
+    
+    # Populate STIG_INFO
+    stig_data = {
+        'version': xccdf_dict['version'],
+        'classification': 'UNCLASSIFIED',
+        'customname': '',
+        'stigid': xccdf_dict['benchmark']['id'],
+        'description': xccdf_dict['description'] if xccdf_dict['description'] != None else '',
+        'filename': xccdf_dict['filename'],
+        'releaseinfo': xccdf_dict['release-info'],
+        'title': xccdf_dict['title'],
+        'uuid': str(uuid.uuid4()),
+        'notice': 'terms-of-use',
+        'source': xccdf_dict['reference']['source'],
+    }
+    for element in stig_data:
+        SI_DATA = ET.SubElement(STIG_INFO, 'SI_DATA')
+        ET.SubElement(SI_DATA, 'SID_NAME').text = element
+        if stig_data[element]:
+            ET.SubElement(SI_DATA, 'SID_DATA').text = stig_data[element]
+    
+    # Determine if manual or benchmark
+    if 'manual' in stig_data['filename'].lower():
+        manual = True
+    else:
+        manual = False
+    
+    # Populate rules
+    for g in xccdf_dict['group']:
+        VULN = ET.SubElement(ISTIG, 'VULN')
+        
+        # Handle exceptions in formating
+        try:
+            TargetKey = xccdf_dict['group'][g]['rule']['reference']['identifier']
+        except:
+            TargetKey = None
+        
+        # Populate STIG data
+        vuln_data = {
+            'Vuln_Num': g,
+            'Severity': xccdf_dict['group'][g]['rule']['severity'],
+            'Group_Title': xccdf_dict['group'][g]['title'],
+            'Rule_ID': xccdf_dict['group'][g]['rule']['id'],
+            'Rule_Ver': xccdf_dict['group'][g]['rule']['version'],
+            'Rule_Title': xccdf_dict['group'][g]['rule']['title'],
+            'Vuln_Discuss': xccdf_dict['group'][g]['rule']['description']['VulnDiscussion'],
+            'IA_Controls': xccdf_dict['group'][g]['rule']['description']['IAControls'],
+            'Check_Content': xccdf_dict['group'][g]['rule']['check']['content'],
+            'Fix_Text': xccdf_dict['group'][g]['rule']['fixtext'],
+            'False_Positives': xccdf_dict['group'][g]['rule']['description']['FalsePositives'],
+            'False_Negatives': xccdf_dict['group'][g]['rule']['description']['FalseNegatives'],
+            'Documentable': xccdf_dict['group'][g]['rule']['description']['Documentable'],
+            'Mitigations': xccdf_dict['group'][g]['rule']['description']['Mitigations'],
+            'Potential_Impact': xccdf_dict['group'][g]['rule']['description']['PotentialImpacts'],
+            'Third_Party_Tools': xccdf_dict['group'][g]['rule']['description']['ThirdPartyTools'],
+            'Mitigation_Control': xccdf_dict['group'][g]['rule']['description']['MitigationControl'],
+            'Responsibility': xccdf_dict['group'][g]['rule']['description']['Responsibility'],
+            'Security_Override_Guidance': xccdf_dict['group'][g]['rule']['description']['SeverityOverrideGuidance'],
+            'Check_Content_Ref': 'M' if manual else xccdf_dict['group'][g]['rule']['check']['ref'],
+            'Weight': xccdf_dict['group'][g]['rule']['weight'],
+            'Class': 'Unclass',
+            'STIGRef': xccdfDict['title'] + " :: Version " + xccdfDict['version'] + ", " + xccdfDict['release-info'],
+            'TargetKey': TargetKey,
+            'STIG_UUID': stig_data['uuid'],
+        }
+            
+        for v in vuln_data:
+            STIG_DATA = ET.SubElement(VULN, 'STIG_DATA')
+            ET.SubElement(STIG_DATA, 'VULN_ATTRIBUTE').text = v
+            ET.SubElement(STIG_DATA, 'ATTRIBUTE_DATA').text = vuln_data[v]
+        
+        if manual:
+            # Legacy IDs
+            for i in xccdf_dict['group'][g]['rule']['legacyId']:
+                STIG_DATA = ET.SubElement(VULN, 'STIG_DATA')
+                ET.SubElement(STIG_DATA, 'VULN_ATTRIBUTE').text = 'LEGACY_ID'
+                ET.SubElement(STIG_DATA, 'ATTRIBUTE_DATA').text = i
+
+            # Add CCI
+            for i in xccdf_dict['group'][g]['rule']['CCI']:
+                STIG_DATA = ET.SubElement(VULN, 'STIG_DATA')
+                ET.SubElement(STIG_DATA, 'VULN_ATTRIBUTE').text = 'CCI_REF'
+                ET.SubElement(STIG_DATA, 'ATTRIBUTE_DATA').text = i
+            
+        # Add status, details, comments, severity override, and justification
+        ET.SubElement(VULN, 'STATUS').text = 'Not_Reviewed'
+        ET.SubElement(VULN, 'FINDING_DETAILS').text = ''
+        ET.SubElement(VULN, 'COMMENTS').text = ''
+        ET.SubElement(VULN, 'SEVERITY_OVERRIDE').text = ''
+        ET.SubElement(VULN, 'SEVERITY_JUSTIFICATION').text = ''
+    
+    # Convert to checklist
+    ET.indent(CHECKLIST, space = '\t', level=0)
+    comment = '\n<!--DISA STIG Viewer :: ' + version + '-->\n'
+    ckl = ET.tostring(CHECKLIST, encoding="UTF-8", xml_declaration=True, short_empty_elements=False)
+    ckl = ckl.decode("UTF-8").split("\n",1)[0] + comment + ckl.decode("UTF-8").split("\n",1)[1]
+    
+    return ckl
