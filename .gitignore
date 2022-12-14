@@ -1,3 +1,4 @@
 # Ignore these files
 modules/__pycache__
+venv
 # Except these files marked with !
