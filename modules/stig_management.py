@@ -84,7 +84,7 @@ class menu:
                 selection = stigDb.select_content()
                 print(selection)
                 if selection:
-                    stigDb.export_content(selection)
+                    stigDb.export_xccdf(selection)
                 stigDb.con.close()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
