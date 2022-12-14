@@ -111,7 +111,7 @@ class stig:
         return update
     
     # Export content based on stigId
-    def export_content(self, stigId):
+    def export_xccdf(self, stigId):
 
         # Fetch data
         q = """
