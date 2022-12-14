@@ -110,18 +110,32 @@ class stig:
         
         return update
     
-    # Export content based on stigId
-    def export_xccdf(self, stigId):
+    # Query local database for content
+    def fetch_content(self, columns = ['*'], conditions = None):
 
-        # Fetch data
-        q = """
-        SELECT * FROM xccdf_content
-        WHERE [stigId] = ?
-        """
-        row = self.cur.execute(q, [stigId]).fetchall()[0]
+        # Build query
+        if columns[0] == '*' and conditions == None:
+            q = "SELECT * FROM xccdf_content"
+        else:
+            q = "SELECT "
+            
+            # Add columns
+            for i in range(len(columns)):
+                if i == len(columns) - 1:
+                    q = q + columns[i]
+                else:
+                    q = q + columns[i] + ', '
+            q = q + ' FROM xccdf_content'
+            
+            # Add conditions
+            if conditions:
+                first_condition = True
+                for col in conditions:
+                    if first_condition:
+                        q = q + "\nWHERE [" + str(col) + "] = '" + str(conditions[col]) + "'"
+                        first_condition = False
+                    else:
+                        q = q + "\nAND [" + str(col) + "] = '" + str(conditions[col]) + "'"
+        rows = self.cur.execute(q).fetchall()
 
-        # Save file
-        fileName = "exports/" + row[1]
-        with open(fileName, 'wb') as f:
-            f.write(row[6].encode('utf-8'))
-        print("\nSaved content to " + fileName)
+        return rows

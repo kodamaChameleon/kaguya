@@ -30,12 +30,14 @@ from io import BytesIO
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 import uuid
-from modules import db_management
 
 # Create STIG management menu
 class menu:
 
     def __init__(self, app):
+
+        # Establish connection to sqlite db
+        repo = stig_repo()
 
         # Sub menu
         while True:
@@ -70,23 +72,20 @@ class menu:
             ## Execute menu options
             # Quit program
             if options[int(choice)] == 'Back':
+                repo.db.con.close()
                 break
 
             # Download STIG content
             if options[int(choice)] == 'Download STIG Content (Internet Required)':
-                stigDb = db_management.stig()
-                repo = stig_repo()
-                repo.download(stigDb)
-                stigDb.con.close()
+                repo.check_available()
+                repo.download()
             
             # Export STIG content
             if options[int(choice)] == 'Export STIG Content':
-                stigDb = db_management.stig()
-                selection = stigDb.select_content()
+                selection = repo.db.select_content()
                 if selection:
                     print('\n' + selection)
-                    stigDb.export_xccdf(selection)
-                stigDb.con.close()
+                    repo.export_xccdf(selection)
 
             # Create STIG checklist from content in stig.db
             if options[int(choice)] == 'Create STIG Checklist':
@@ -95,16 +94,14 @@ class menu:
                 if selection:
                     print('\n' + selection)
                     # Create a checklist
-                stigDb.con.close()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
 
     def __init__(self):
+        from modules import db_management
+        self.db = db_management.stig()
         self.url = "https://public.cyber.mil/stigs/downloads/"
-
-        # Store content from cyber.mil as a class element
-        self.content = self.check_available()
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
@@ -125,10 +122,10 @@ class stig_repo:
                     'date': file.find('div',attrs={'class':'av-post-date'}).text.strip(),
                 }
         
-        return content
+        self.content = content
 
     # Build a SQLite inventory of cyber.mil contents for reference
-    def download(self, stigDb):
+    def download(self):
     
         print("\nDownloading xccdf content from https://public.cyber.mil/stigs/downloads/...")
         ptr = 0
@@ -144,7 +141,7 @@ class stig_repo:
             if url:
 
                 # Check if content needs updating
-                update = stigDb.check_updates(i, self.content[i]['date'])
+                update = self.db.check_updates(i, self.content[i]['date'])
                 if update:
 
                     # Download and identify extension
@@ -204,8 +201,36 @@ class stig_repo:
                         }
                         data.append(row)
 
-        stigDb.update_content(data)
+        self.db.update_content(data)
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
+
+    # Export xccdf content
+    def export_xccdf(self, stigId):
+
+        content = self.db.fetch_content(columns = ['fileName', 'fileContent'], conditions = {'stigId': stigId})
+
+        # Save file to exports
+        fileName = 'exports\\' + content[0][0]
+        with open(fileName, 'wb') as f:
+            f.write(content[0][1].encode('utf-8'))
+        print("\nSaved content to " + fileName)
+
+    # Create STIG checklist
+    def create_ckl(self, stigId):
+
+        # Fetch content from database
+        content = self.db.fetch_content(columns = ['fileName', 'fileContent'], conditions = {'stigId': stigId})
+
+        # Parse xccdf into dictionary, then convert to checklist
+        xccdf_dict = parse_xccdf(content[0][0], content[0][1])
+        ckl = generate_ckl(xccdf_dict)
+
+        # Save file to exports
+        fileName = 'exports\\' + content[0][0]
+        with open(fileName, 'wb') as f:
+            f.write(content[0][1].encode('utf-8'))
+        print("\nSaved content to " + fileName)
+
 
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
@@ -220,7 +245,7 @@ def find_between( s, first, last ):
 
 
 # Parse all components of xccdf into a dictionary file
-def parse_xccdf(raw, filename):
+def parse_xccdf(filename, raw):
     
     # Prep for building dictionary
     root = ET.fromstring(raw)
