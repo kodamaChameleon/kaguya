@@ -61,15 +61,23 @@ class stig:
         self.con.commit()
     
     # Content selector
-    def select_content(self):
+    def select_content(self, benchmark = True):
 
         search = input("Enter the full or partial name of a STIG: ")
 
-        q = """
-        SELECT stigId from xccdf_content
-        WHERE [stigId] LIKE "%_XXX_%"
-        AND [fileContent] IS NOT NULL
-        """.replace('_XXX_',search)
+        if benchmark:
+            q = """
+            SELECT stigId from xccdf_content
+            WHERE [stigId] LIKE "%_XXX_%"
+            AND [fileContent] IS NOT NULL
+            """.replace('_XXX_',search)
+        else:
+            q = """
+            SELECT stigId from xccdf_content
+            WHERE [stigId] LIKE "%_XXX_%"
+            AND [fileContent] IS NOT NULL
+            AND [fileName] NOT LIKE "%benchmark%"
+            """.replace('_XXX_',search)
         options = [opt for sublist in self.cur.execute(q).fetchall() for opt in sublist] + [None]
 
         # Display Options

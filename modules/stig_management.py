@@ -45,7 +45,7 @@ class menu:
             # Create menu options
             options = {
                 1: 'Download STIG Content (Internet Required)',
-                2: 'Export STIG Content',
+                2: 'Export STIG/SCAP Content',
                 3: 'Create STIG Checklist',
                 4: 'Back',
             }
@@ -81,7 +81,7 @@ class menu:
                 repo.download()
             
             # Export STIG content
-            if options[int(choice)] == 'Export STIG Content':
+            if options[int(choice)] == 'Export STIG/SCAP Content':
                 selection = repo.db.select_content()
                 if selection:
                     print('\n' + selection)
@@ -89,7 +89,7 @@ class menu:
 
             # Create STIG checklist from content in stig.db
             if options[int(choice)] == 'Create STIG Checklist':
-                selection = repo.db.select_content()
+                selection = repo.db.select_content(benchmark=False)
                 if selection:
                     print('\n' + selection)
                     repo.create_ckl(selection)
@@ -152,28 +152,32 @@ class stig_repo:
                         zipData = ZipFile(BytesIO(r.content))
                         stig_content = False
                         for file in zipData.namelist():
-                            if file.split(".")[-1].lower() == 'xml' and 'xccdf' in file.lower():
-                                stig_content = True
-                                xccdf = zipData.open(file).read().decode('utf-8')
-                                root = ET.fromstring(xccdf)
+                            if file.split(".")[-1].lower() == 'xml':
+                                
+                                # Content wich can not be unzipped and parsed is assumed to not be STIG/SCAP content
+                                try:
+                                    xccdf = zipData.open(file).read().decode('utf-8')
+                                    root = ET.fromstring(xccdf)
 
-                                # Determine if SCAP or STIG content
-                                if 'manual' in file.lower():
-                                    fileType = 'manual'
-                                elif 'benchmark' in file.lower():
-                                    fileType = 'benchmark'
+                                    # Determine if SCAP or STIG content
+                                    if 'manual' in file.lower():
+                                        fileType = 'manual'
+                                    elif 'benchmark' in file.lower():
+                                        fileType = 'benchmark'
 
-                                # Insert row into database
-                                row = {
-                                    'stigId': root.attrib['id'],
-                                    'fileName': file.split("/")[-1],
-                                    'zipFolder': i,
-                                    'href': url,
-                                    'date': self.content[i]['date'],
-                                    'fileType': fileType,
-                                    'fileContent': xccdf,
-                                }
-                                data.append(row)
+                                    row = {
+                                        'stigId': root.attrib['id'],
+                                        'fileName': file.split("/")[-1],
+                                        'zipFolder': i,
+                                        'href': url,
+                                        'date': self.content[i]['date'],
+                                        'fileType': fileType,
+                                        'fileContent': xccdf,
+                                    }
+                                    data.append(row)
+                                    stig_content = True
+                                except:
+                                    None
                         
                         # Create entry to remember non-STIG/SCAP content
                         if stig_content == False:
