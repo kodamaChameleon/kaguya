@@ -89,11 +89,10 @@ class menu:
 
             # Create STIG checklist from content in stig.db
             if options[int(choice)] == 'Create STIG Checklist':
-                stigDb = db_management.stig()
-                selection = stigDb.select_content()
+                selection = repo.db.select_content()
                 if selection:
                     print('\n' + selection)
-                    # Create a checklist
+                    repo.create_ckl(selection)
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -225,10 +224,13 @@ class stig_repo:
         xccdf_dict = parse_xccdf(content[0][0], content[0][1])
         ckl = generate_ckl(xccdf_dict)
 
+        # Parse ckl to get filename
+        ckl_dict = parse_ckl(ckl)
+
         # Save file to exports
-        fileName = 'exports\\' + content[0][0]
+        fileName = 'exports\\' + name_ckl(ckl_dict)
         with open(fileName, 'wb') as f:
-            f.write(content[0][1].encode('utf-8'))
+            f.write(ckl.encode('UTF-8'))
         print("\nSaved content to " + fileName)
 
 
@@ -381,16 +383,16 @@ def generate_ckl(xccdf_dict, host_data=None, version = '2.17'):
             'ROLE': 'None',
             'ASSET_TYPE': 'Computing',
             'MARKING': 'CUI',
-            'HOST_NAME': '',
-            'HOST_IP': '',
-            'HOST_MAC': '',
-            'HOST_FQDN': '',
-            'TARGET_COMMENT': '',
-            'TECH_AREA': '',
+            'HOST_NAME': None,
+            'HOST_IP': None,
+            'HOST_MAC': None,
+            'HOST_FQDN': None,
+            'TARGET_COMMENT': None,
+            'TECH_AREA': None,
             'TARGET_KEY': '4072',
             'WEB_OR_DATABASE': 'false',
-            'WEB_DB_SITE': '',
-            'WEB_DB_INSTANCE': '',
+            'WEB_DB_SITE': None,
+            'WEB_DB_INSTANCE': None,
         }
     
     # Create xml structure
@@ -466,7 +468,7 @@ def generate_ckl(xccdf_dict, host_data=None, version = '2.17'):
             'Check_Content_Ref': 'M' if manual else xccdf_dict['group'][g]['rule']['check']['ref'],
             'Weight': xccdf_dict['group'][g]['rule']['weight'],
             'Class': 'Unclass',
-            'STIGRef': xccdfDict['title'] + " :: Version " + xccdfDict['version'] + ", " + xccdfDict['release-info'],
+            'STIGRef': xccdf_dict['title'] + " :: Version " + xccdf_dict['version'] + ", " + xccdf_dict['release-info'],
             'TargetKey': TargetKey,
             'STIG_UUID': stig_data['uuid'],
         }
@@ -501,5 +503,91 @@ def generate_ckl(xccdf_dict, host_data=None, version = '2.17'):
     comment = '\n<!--DISA STIG Viewer :: ' + version + '-->\n'
     ckl = ET.tostring(CHECKLIST, encoding="UTF-8", xml_declaration=True, short_empty_elements=False)
     ckl = ckl.decode("UTF-8").split("\n",1)[0] + comment + ckl.decode("UTF-8").split("\n",1)[1]
-    
+
     return ckl
+
+# Parse ckl contents into dictionary
+def parse_ckl(ckl):
+    
+    CHECKLIST = ET.fromstring(ckl)
+    
+    ckl_dict = {
+        'summary': {
+            'Not_Reviewed': 0,
+            'NotAFinding': 0,
+            'Not_Applicable': 0,
+            'Open': 0,
+            'Missing_Details': 0,
+            'Missing_Comments': 0,
+        },
+        'ASSET': {},
+        'STIG_INFO': {},
+        'VULN': {}
+    }
+    
+    # Parse asset info
+    for a in CHECKLIST.find('ASSET'):
+        ckl_dict['ASSET'][a.tag] = a.text
+        
+    # Parse stig info
+    for i in CHECKLIST.findall('STIGS/iSTIG/STIG_INFO/SI_DATA'):
+        try:
+            ckl_dict['STIG_INFO'][i.find('SID_NAME').text] = i.find('SID_DATA').text
+        except AttributeError:
+            ckl_dict['STIG_INFO'][i.find('SID_NAME').text] = None
+            
+    # Parse vuln info
+    for v in CHECKLIST.findall('STIGS/iSTIG/VULN'):
+        
+        # Create new dictionary to parse vuln by their Vuln_Num
+        vulnId = v.find('.//*[VULN_ATTRIBUTE="Vuln_Num"]/./ATTRIBUTE_DATA').text
+        ckl_dict['VULN'][vulnId] = {}
+
+        # Populate vulnId dictionary
+        for child in v:
+            if child.tag == 'STIG_DATA':
+                
+                # Skip Vuln_num since already used as key
+                if child.find('VULN_ATTRIBUTE').text == 'Vuln_Num':
+                    continue
+                ckl_dict['VULN'][vulnId][child.find('VULN_ATTRIBUTE').text] = child.find('ATTRIBUTE_DATA').text
+                
+            else:
+                ckl_dict['VULN'][vulnId][child.tag] = child.text
+                
+                # Populate summary
+                if child.tag == 'STATUS':
+                    ckl_dict['summary'][child.text] += 1
+                elif child.tag == 'FINDING_DETAILS' and child.text == None:
+                    ckl_dict['summary']['Missing_Details'] += 1
+                elif child.tag == 'COMMENTS' and child.text == None:
+                    ckl_dict['summary']['Missing_Comments'] += 1
+                    
+    return ckl_dict
+
+# Generate a standard name based on parsed ckl
+def name_ckl(ckl_dict):
+    
+    # Determine if a hostname was provided
+    if ckl_dict['ASSET']['HOST_NAME']:
+        hostname = str(ckl_dict['ASSET']['HOST_NAME'])
+    else:
+        hostname = 'Template'
+        
+    # Abbrevieate release info
+    parse = ckl_dict['STIG_INFO']['releaseinfo'].split(' Benchmark Date: ')
+    release = parse[0].split(' ')[-1]
+    date = parse[-1].replace(' ', '-')
+    version = 'v' + ckl_dict['STIG_INFO']['version'] + 'r' + release
+    
+    # Define components and build name
+    nameComponents = [
+        str(ckl_dict['ASSET']['MARKING']),
+        hostname,
+        str(ckl_dict['STIG_INFO']['stigid']),
+        version,
+        date,
+    ]
+    fileName = '_'.join(nameComponents)  + '.ckl'
+    
+    return fileName
