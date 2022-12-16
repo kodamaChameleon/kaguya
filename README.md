@@ -13,13 +13,15 @@
 ```
 ![My_Image](https://github.com/kodamaChameleon/kodamaChameleon/blob/main/pics/astronaut.jpg)  
 Version: 1.0  
-Release Date: 02 November, 2022  
+Release Date: 15 December, 2022  
 @kodamaChameleon  
 
 Summary
 -------
 
 Kaguya is a command line based application for automating common Risk Management Framework (RMF) controls and implementations. Kaguya's primary audience is the Information System Security Manager (ISSM), Information System Security Officer (ISSO), and other compliance auditors subject to NIST 800-53 and RMF compliance within the DoD and other U.S. Government agencies.
+
+\* For more documentation, <a href="https://github.com/kodamaChameleon/kaguya/wiki">Read the Docs</a>
 
 Trivia
 --------
