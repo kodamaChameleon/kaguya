@@ -76,11 +76,23 @@ class environment:
         if key in self.env:
 
             # Temporary placeholder for previous value
-            oldValue = self.env[key] 
+            oldValue = self.env[key]
+
+            # Create default environment variables
+            defaults = {
+                'STIG Repository Path': 'exports',
+            }
 
             # Set new value
             print("\n'" + str(key) + "' current value = " + str(self.env[key]))
-            self.env[key] = input("Set new value for '" + str(key) + "'; ")
+            if key in defaults:
+                newValue = input("Set new value for '" + str(key) + "' (leave empty for default value '" + defaults[key] + "'); ")
+                if newValue == '':
+                    self.env[key] = defaults[key]
+                else:
+                    self.env[key] = newValue
+            else:
+                self.env[key] = input("Set new value for '" + str(key) + "'; ")
             self.write_env(self.env)
             print("\n'" + str(key) + "' set to value '" + str(self.env[key]) + "'")
 
