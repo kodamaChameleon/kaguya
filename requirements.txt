@@ -1,3 +1,6 @@
+# Required for all installations
 python==3.11.0
+
+# Not required for offline installations
 requests==2.28.1
 bs4==0.0.1
