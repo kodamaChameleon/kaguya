@@ -50,14 +50,13 @@ class environment:
         
         # If no key specified, default option
         if key == None:
-            keys = list(self.env.keys())
+            keys = list(self.env.keys()) + ['Cancel']
 
             # Display options
             print(
                 "="*23 + "[UPDATE ENVIRONMENT]" + "="*23,
                 "\nChoose from the following options:",
                 *[str(n+1) + ") " + keys[n] for n in range(len(keys))],
-                str(len(keys) + 1) + ") Cancel",
                 "\nChoose from the following options:",
                 sep = "\n"
             )
@@ -66,14 +65,17 @@ class environment:
             while True:
                 try:
                     choice = int(input("\nSelect an option to continue: "))
-                    if keys[choice] or choice == len(keys) +1:
-                        if choice != len(keys) + 1:
-                            key = keys[choice]
+                    if keys[choice - 1]:
+                        key = keys[choice - 1]
                         break
                 except:
                     print("\nNot a valid option.")
 
-        if key:
+        if key in self.env:
+
+            # Temporary placeholder for previous value
+            oldValue = self.env[key] 
+
             # Set new value
             print("\n'" + str(key) + "' current value = " + str(self.env[key]))
             self.env[key] = input("Set new value for '" + str(key) + "'; ")

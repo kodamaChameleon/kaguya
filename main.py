@@ -42,7 +42,8 @@ while True:
   # Create menu options
   options = {
     1: 'STIG Management',
-    2: 'Exit',
+    2: 'Update System Variables',
+    3: 'Exit',
   }
 
   # Display menu options
@@ -74,3 +75,7 @@ while True:
   if options[int(choice)] == 'STIG Management':
     from modules import stig_management
     stig_management.menu(app)
+
+  # Account for changes to system
+  if options[int(choice)] == 'Update System Variables':
+    app.update_env()
