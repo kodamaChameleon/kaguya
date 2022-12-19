@@ -37,7 +37,8 @@ class menu:
     def __init__(self, app):
 
         # Establish connection to sqlite db
-        repo = stig_repo()
+        app.env = app.check_env('STIG Repository Path')
+        repo = stig_repo(app.env['STIG Repository Path'])
 
         # Sub menu
         while True:
@@ -97,10 +98,53 @@ class menu:
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
 
-    def __init__(self):
+    def __init__(self, rootDir):
         from modules import db_management
         self.db = db_management.stig()
         self.url = "https://public.cyber.mil/stigs/downloads/"
+        self.fileStructure = {
+            'content': {
+                'path': os.path.join(rootDir, 'content'),
+                'authExt': [],
+            },
+            'stig_checklists': {
+                'path': os.path.join(rootDir, 'stig_checklists'),
+                'authExt': [],
+            },
+            'wip': {
+                'path': os.path.join(rootDir, 'stig_checklists\\work-in-progress'),
+                'authExt': ['ckl'],
+            },
+            'final': {
+                'path': os.path.join(rootDir, 'stig_checklists\\final'),
+                'authExt': ['ckl'],
+            },
+            'benchmark': {
+                'path': os.path.join(rootDir, 'content\\xccdf-benchmark'),
+                'authExt': ['xml'],
+            },
+            'manual': {
+                'path': os.path.join(rootDir, 'content\\xccdf-manual'),
+                'authExt': ['xml'],
+            },
+            'results': {
+                'path': os.path.join(rootDir, 'content\\scc-results'),
+                'authExt': ['xml'],
+            },
+            'docs': {
+                'path': os.path.join(rootDir, 'documents'),
+                'authExt': ['csv', 'pdf', 'doc', 'docx', 'txt', 'xlsx'],
+            },
+            'archive': {
+                'path': os.path.join(rootDir, 'archive'),
+                'authExt': [],
+            },
+        }
+
+        # Build repo file structure if it does not exist
+        for dir in self.fileStructure:
+            if not os.path.exists(self.fileStructure[dir]['path']):
+                os.mkdir(self.fileStructure[dir]['path'])
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
@@ -213,7 +257,10 @@ class stig_repo:
         content = self.db.fetch_content(columns = ['fileName', 'fileContent'], conditions = {'stigId': stigId})
 
         # Save file to exports
-        fileName = 'exports\\' + content[0][0]
+        if 'benchmark' in content[0][0].lower():
+            fileName = os.path.join(self.fileStructure['benchmark']['path'], content[0][0])
+        else:
+            fileName = os.path.join(self.fileStructure['manual']['path'], content[0][0])
         with open(fileName, 'wb') as f:
             f.write(content[0][1].encode('utf-8'))
         print("\nSaved content to " + fileName)
@@ -232,11 +279,10 @@ class stig_repo:
         ckl_dict = parse_ckl(ckl)
 
         # Save file to exports
-        fileName = 'exports\\' + name_ckl(ckl_dict)
+        fileName = os.path.join(self.fileStructure['wip']['path'], name_ckl(ckl_dict))
         with open(fileName, 'wb') as f:
             f.write(ckl.encode('UTF-8'))
         print("\nSaved content to " + fileName)
-
 
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT

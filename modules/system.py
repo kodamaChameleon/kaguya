@@ -45,6 +45,8 @@ class environment:
             self.env[var_name] = None
             self.env = self.update_env(var_name)
 
+        return self.read_env()
+
     # Edit environmental variables
     def update_env(self, key = None):
         
