@@ -30,6 +30,7 @@ from io import BytesIO
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 import uuid
+import shutil
 
 # Create STIG management menu
 class menu:
@@ -48,7 +49,8 @@ class menu:
                 1: 'Download STIG Content (Internet Required)',
                 2: 'Export STIG/SCAP Content',
                 3: 'Create STIG Checklist',
-                4: 'Back',
+                4: 'Sort STIG Repository',
+                5: 'Back',
             }
 
             # Display menu options
@@ -95,16 +97,22 @@ class menu:
                     print('\n' + selection)
                     repo.create_ckl(selection)
 
+            # Sort files in the STIG repository
+            if options[int(choice)] == 'Sort STIG Repository':
+                repo.sort()
+                repo.clean()
+
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
 
     def __init__(self, rootDir):
         from modules import db_management
         self.db = db_management.stig()
+        self.rootDir = rootDir
         self.url = "https://public.cyber.mil/stigs/downloads/"
         self.fileStructure = {
             'content': {
-                'path': os.path.join(rootDir, 'content'),
+                'path': os.path.join(rootDir, 'xccdf_content'),
                 'authExt': [],
             },
             'stig_checklists': {
@@ -118,17 +126,20 @@ class stig_repo:
             'final': {
                 'path': os.path.join(rootDir, 'stig_checklists\\final'),
                 'authExt': ['ckl'],
+                'conditions': {
+                    'Not_Reviewed': 0,
+                }
             },
             'benchmark': {
-                'path': os.path.join(rootDir, 'content\\xccdf-benchmark'),
+                'path': os.path.join(rootDir, 'xccdf_content\\benchmark'),
                 'authExt': ['xml'],
             },
             'manual': {
-                'path': os.path.join(rootDir, 'content\\xccdf-manual'),
+                'path': os.path.join(rootDir, 'xccdf_content\\manual'),
                 'authExt': ['xml'],
             },
             'results': {
-                'path': os.path.join(rootDir, 'content\\scc-results'),
+                'path': os.path.join(rootDir, 'xccdf_content\\results'),
                 'authExt': ['xml'],
             },
             'docs': {
@@ -140,7 +151,6 @@ class stig_repo:
                 'authExt': [],
             },
         }
-
         # Build repo file structure if it does not exist
         for dir in self.fileStructure:
             if not os.path.exists(self.fileStructure[dir]['path']):
@@ -283,6 +293,72 @@ class stig_repo:
         with open(fileName, 'wb') as f:
             f.write(ckl.encode('UTF-8'))
         print("\nSaved content to " + fileName)
+
+    # Sort files in the STIG repository
+    def sort(self):
+        
+        # Determine contents of all folders and iterate through
+        files = index_files(self.rootDir)
+        ptr = 0
+        for fPath in files:
+            
+            # Update completion status
+            ptr = ptr + 1
+            print("[" + "="*(round((ptr/len(files))*100)) + " "*(100 - round((ptr/len(files))*100)) + "]", end = "\r")
+
+            fName = fPath.split("\\")[-1]
+            ext = fPath.split('.')[-1].lower()
+            
+            # Ignore any files starting with '.'
+            if fName[0] == '.':
+                continue
+            
+            # Handle ckl based on completion status
+            if ext == 'ckl':
+                
+                # Parse checklist
+                with open(fPath, 'rb') as c:
+                    ckl = c.read()
+                ckl_dict = parse_ckl(ckl)
+                
+                # Determine destination based on remaining Not_Reviewed
+                if ckl_dict['summary']['Not_Reviewed'] == 0:
+                    destination = os.path.join(self.fileStructure['final']['path'], fName)
+                else:
+                    destination = os.path.join(self.fileStructure['wip']['path'], fName)
+            
+            # Handle xccdf content based on name
+            elif ext == 'xml':
+                for s in self.fileStructure:
+                    if s in fName.lower():
+                        destination = os.path.join(self.fileStructure[s]['path'], fName)
+            
+            # Non STIG/SCAP content
+            else:
+                if ext in self.fileStructure['docs']['authExt']:
+                    destination = os.path.join(self.fileStructure['docs']['path'], fName)
+                else:
+                    destination = os.path.join(self.fileStructure['archive']['path'], fName)
+            
+            # Move files
+            move_file(fPath, destination)
+            
+        print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
+
+    # Remove empty directories from STIG repository
+    def clean(self):
+        
+        # Convert file structure paths to list
+        paths = set()
+        for s in self.fileStructure:
+            paths.add(self.fileStructure[s]['path'])
+        
+        # Look for empty directories
+        for root, subFolders, files in os.walk(self.rootDir):
+            for folder in subFolders:
+                path = os.path.join(root, folder)
+                if len(os.listdir(path)) == 0 and path not in paths:
+                    os.rmdir(path)
 
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
@@ -641,3 +717,30 @@ def name_ckl(ckl_dict):
     fileName = '_'.join(nameComponents)  + '.ckl'
     
     return fileName
+
+# Index file contents recursively
+def index_files(rootDir):
+    content = set()
+    for root, subFolders, files in os.walk(rootDir):
+        for f in files:
+            content.add(os.path.join(root, f))
+            
+    return content
+
+# Move files
+def move_file(src, des):
+
+    if src == des:
+        None
+    elif not os.path.exists(des):
+        shutil.move(src,des)
+    else:
+        print('\nMoving ' + src + '...')
+        choice = ''
+        while choice not in ['y', 'n']:
+            choice = input(des + " already exists.\nOverwrite (y/n)? ").lower()
+        if choice == 'y':
+            shutil.move(src,des)
+        else:
+            None
+        print('\n')
