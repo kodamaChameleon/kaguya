@@ -21,7 +21,7 @@ Summary
 
 Kaguya is a command line based application for automating common Risk Management Framework (RMF) controls and implementations. Kaguya's primary audience is the Information System Security Manager (ISSM), Information System Security Officer (ISSO), and other compliance auditors subject to NIST 800-53 and RMF compliance within the DoD and other U.S. Government agencies.
 
-\* For more documentation, <a href="https://github.com/kodamaChameleon/kaguya/wiki">Read the Docs</a>
+_\* For more on Kaguya_ <a href="https://github.com/kodamaChameleon/kaguya/wiki">Read the Docs</a>
 
 Trivia
 --------
