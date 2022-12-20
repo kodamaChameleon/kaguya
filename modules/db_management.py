@@ -147,3 +147,84 @@ class stig:
         rows = self.cur.execute(q).fetchall()
 
         return rows
+
+# Store data on system assets
+class asset:
+
+    def __init__(self, systemName):
+        self.name = 'data/' + str(systemName) + '.db'
+        self.con = sqlite3.connect(self.name)
+        self.cur = self.con.cursor()
+
+        self.make_table()
+    
+    # Create standard table
+    def make_table(self):
+
+        # Asset table with cpe as foreign key to platform
+        q = """
+        CREATE TABLE IF NOT EXISTS assets(
+            [device_type] TEXT,
+            [role] TEXT,
+            [hostname] TEXT,
+            [ip] TEXT,
+            [mac] TEXT,
+            [serial] TEXT,
+            [memory_capacity] TEXT,
+            [memory_type] TEXT,
+            PRIMARY KEY([serial], [mac])
+        )
+        """
+        self.cur.execute(q)
+
+        # Following CPE 2.3 specifications.
+        q = """
+        CREATE TABLE IF NOT EXISTS platform(
+            [cpe] TEXT PRIMARY KEY,
+            [part] TEXT,
+            [vendor] TEXT,
+            [product] TEXT,
+            [version] TEXT,
+            [update] TEXT,
+            [edition] TEXT,
+            [language] TEXT,
+            [sw_edition] TEXT,
+            [target_sw] TEXT,
+            [target_hw] TEXT,
+            [other] TEXT,
+        )
+        """
+        self.cur.execute(q)
+
+        # Table of ports, protocols, and servicies (see https://www.iana.org)
+        q = """
+        CREATE TABLE IF NOT EXISTS ppsm(
+            [service] TEXT,
+            [port] TEXT,
+            [protocol] TEXT,
+            [description] TEXT,
+            [assignee] TEXT,
+            [contact] TEXT,
+            [registration_date] TEXT,
+            [modification_date] TEXT,
+            [reference] TEXT,
+            [notes] TEXT,
+            PRIMARY KEY([port], [protocol])
+        )
+        """
+        self.cur.execute(q)
+
+        # Table for combining the various other tables
+        q = """
+        CREATE TABLE IF NOT EXISTS ppsm(
+            [#] TEXT PRIMARY KEY,
+            [hostname] TEXT,
+            [ip] TEXT,
+            [cpe] TEXT,
+            [port] TEXT,
+            [protocol] TEXT,
+        )
+        """
+        self.cur.execute(q)
+
+        self.con.commit()
