@@ -12,7 +12,7 @@
 ==================================================================
 ```
 ![My_Image](https://github.com/kodamaChameleon/kodamaChameleon/blob/main/pics/astronaut.jpg)  
-Version: 1.0  
+Version: 1.1.0 
 Release Date: 15 December, 2022  
 @kodamaChameleon  
 
