@@ -191,7 +191,7 @@ class asset:
             [sw_edition] TEXT,
             [target_sw] TEXT,
             [target_hw] TEXT,
-            [other] TEXT,
+            [other] TEXT
         )
         """
         self.cur.execute(q)
@@ -222,7 +222,7 @@ class asset:
             [ip] TEXT,
             [cpe] TEXT,
             [port] TEXT,
-            [protocol] TEXT,
+            [protocol] TEXT
         )
         """
         self.cur.execute(q)

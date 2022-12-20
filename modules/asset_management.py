@@ -27,7 +27,7 @@ class menu:
             # Create menu options
             options = {
                 1: 'Do Something',
-                5: 'Back',
+                2: 'Back',
             }
             choice = system.menu('ASSET', options)
 
