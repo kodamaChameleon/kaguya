@@ -10,13 +10,14 @@ features to include but not limited to manipulating
 the environment file.
 """
 
-# Import dependencies
-import json
-
 # Create environment class which stores data about how the application will behave
 class environment:
 
     def __init__(self):
+
+        # Import external libraries
+        import json
+
         self.fileName = "data/.env"
         self.env = self.read_env()
     
@@ -98,3 +99,28 @@ class environment:
 
         else:
             print("\nCancelled.")
+
+# Standard menu template
+def menu(title, options):
+
+    # Display menu options
+    buf = round((93 - len(title))/2)
+    print(
+        "\n" + "="*buf + "[" + title + " MENU]" + "="*buf,
+        "\nChoose from the following options:",
+        *[str(k) + ") " + options[k] for k in options],
+        sep = "\n",
+    )
+
+    # Choose from menu options
+    while True:
+        try:
+            choice = int(input("\nSelect an Option to continue: "))
+            if choice in options:
+                break
+            else:
+                print("\n" + str(choice) + " is not a valid option.")
+        except:
+            print("\nSelect an integer number only.")
+
+    return choice

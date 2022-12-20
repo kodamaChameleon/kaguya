@@ -23,14 +23,16 @@ any attempt to download the 8% non-public files.
 """
 
 # Import external libraries
+from modules import db_management
+from modules import system
 import os
-import requests
-from bs4 import BeautifulSoup
-from io import BytesIO
-from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 import uuid
 import shutil
+from io import BytesIO
+from zipfile import ZipFile
+import requests # Comment this line out if using on an offline system
+from bs4 import BeautifulSoup # Comment this line out if using on an offline system
 
 # Create STIG management menu
 class menu:
@@ -54,23 +56,7 @@ class menu:
             }
 
             # Display menu options
-            print(
-                "\n" + "="*28 + "[STIG MENU]" + "="*28,
-                "\nChoose from the following options:",
-                *[str(k) + ") " + options[k] for k in options],
-                sep = "\n",
-            )
-
-            # Choose from menu options
-            while True:
-                try:
-                    choice = int(input("\nSelect an Option to continue: "))
-                    if choice in options:
-                        break
-                    else:
-                        print("\n" + str(choice) + " is not a valid option.")
-                except:
-                    print("\nSelect an integer number only.")
+            choice = system.menu('STIG', options)
 
             ## Execute menu options
             # Quit program
@@ -106,7 +92,9 @@ class menu:
 class stig_repo:
 
     def __init__(self, rootDir):
-        from modules import db_management
+
+
+
         self.db = db_management.stig()
         self.rootDir = rootDir
         self.url = "https://public.cyber.mil/stigs/downloads/"
@@ -158,6 +146,7 @@ class stig_repo:
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
+
         r = requests.get(self.url)
         soup = BeautifulSoup(r.text, 'html.parser')
         content = {}

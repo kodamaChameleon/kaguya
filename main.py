@@ -29,9 +29,11 @@ License
 The project is licensed under the MIT license.
 """
 
+# Import external libraries
+from modules import system
+
 # Import environmental variables
 print("Importing environmental variables...")
-from modules import system
 app = system.environment()
 app.check_env("Information System Name")
 print("Complete!")
@@ -42,30 +44,12 @@ while True:
   # Create menu options
   options = {
     1: 'STIG Management',
-    2: 'Update System Variables',
-    3: 'Exit',
+    2: 'Asset Management',
+    3: 'Update System Variables',
+    4: 'Exit',
   }
+  choice = system.menu('MAIN', options)
 
-  # Display menu options
-  print(
-    "\n" + "="*28 + "[MAIN MENU]" + "="*28,
-    "\nChoose from the following options:",
-    *[str(k) + ") " + options[k] for k in options],
-    sep = "\n",
-  )
-
-  # Choose from menu options
-  while True:
-    try:
-      choice = int(input("\nSelect an Option to continue: "))
-      if choice in options:
-        break
-      else:
-        print("\n" + str(choice) + " is not a valid option.")
-    except:
-      print("\nSelect an integer number only.")
-
-  ## Execute menu options
   # Quit program
   if options[int(choice)] == 'Exit':
     print("\nGoodbye!")
@@ -75,6 +59,11 @@ while True:
   if options[int(choice)] == 'STIG Management':
     from modules import stig_management
     stig_management.menu(app)
+
+  # Manage assets
+  if options[int(choice)] == 'STIG Management':
+    from modules import asset_management
+    asset_management.menu(app)
 
   # Account for changes to system
   if options[int(choice)] == 'Update System Variables':
