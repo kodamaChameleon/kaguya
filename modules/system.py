@@ -9,14 +9,15 @@ modules such as the main launch menu and other
 features to include but not limited to manipulating
 the environment file.
 """
+# Import external libraries
+import json
+import shutil
+import os
 
 # Create environment class which stores data about how the application will behave
 class environment:
 
     def __init__(self):
-
-        # Import external libraries
-        import json
 
         self.fileName = "data/.env"
         self.env = self.read_env()
@@ -97,6 +98,11 @@ class environment:
             self.write_env(self.env)
             print("\n'" + str(key) + "' set to value '" + str(self.env[key]) + "'")
 
+            # Any cleanup tasks for backwards compatibility
+            if key == 'Information System Name':
+                src = os.path.join('data', oldValue + '.db')
+                des = os.path.join('data', self.env[key] + '.db')
+                move_file(src, des)
         else:
             print("\nCancelled.")
 
@@ -124,3 +130,21 @@ def menu(title, options):
             print("\nSelect an integer number only.")
 
     return choice
+
+# Move files
+def move_file(src, des):
+
+    if src == des:
+        None
+    elif not os.path.exists(des):
+        shutil.move(src,des)
+    else:
+        print('\nMoving ' + src + '...')
+        choice = ''
+        while choice not in ['y', 'n']:
+            choice = input(des + " already exists.\nOverwrite (y/n)? ").lower()
+        if choice == 'y':
+            shutil.move(src,des)
+        else:
+            None
+        print('\n')

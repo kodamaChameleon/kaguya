@@ -330,7 +330,7 @@ class stig_repo:
                     destination = os.path.join(self.fileStructure['archive']['path'], fName)
             
             # Move files
-            move_file(fPath, destination)
+            system.move_file(fPath, destination)
             
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
 
@@ -716,20 +716,3 @@ def index_files(rootDir):
             
     return content
 
-# Move files
-def move_file(src, des):
-
-    if src == des:
-        None
-    elif not os.path.exists(des):
-        shutil.move(src,des)
-    else:
-        print('\nMoving ' + src + '...')
-        choice = ''
-        while choice not in ['y', 'n']:
-            choice = input(des + " already exists.\nOverwrite (y/n)? ").lower()
-        if choice == 'y':
-            shutil.move(src,des)
-        else:
-            None
-        print('\n')
