@@ -16,6 +16,7 @@ The different alpha and beta builds will be compiled from their corresponding ta
 ### Minor Release Support Matrix
 | Version                          | Supported          |
 |----------------------------------|--------------------|
+| Kaguya v2.0.x beta               | :x:                |
 | Kaguya v1.1.x                    | :white_check_mark: |
 
 ### Upgrade path and support policy
