@@ -56,15 +56,15 @@ while True:
     break
 
   # Manage STIG content
-  if options[int(choice)] == 'STIG Management':
+  elif options[int(choice)] == 'STIG Management':
     from modules import stig_management
     stig_management.menu(app)
 
   # Manage assets
-  if options[int(choice)] == 'STIG Management':
+  elif options[int(choice)] == 'Asset Management':
     from modules import asset_management
     asset_management.menu(app)
 
   # Account for changes to system
-  if options[int(choice)] == 'Update System Variables':
+  elif options[int(choice)] == 'Update System Variables':
     app.update_env()
