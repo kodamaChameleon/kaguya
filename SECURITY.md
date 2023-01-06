@@ -8,9 +8,9 @@ Only the latest Kaguya release is maintained. Applicable fixes, including securi
 ## Reporting a Vulnerability - Private Disclosure Process
 Security is of the highest importance and all security vulnerabilities or suspected security vulnerabilities should be reported to Kaguya privately, to minimize attacks against current users of Kaguya before they are fixed. Vulnerabilities will be investigated and patched on the next patch (or minor) release as soon as possible. This information could be kept entirely internal to the project.  
 
-We do not currently have a reporting system in place to submit vulnerabilities to in a secure manner. Should Kaguya find a larger customer base, measures will be taken to ensure the protection of our customers by providing appropriate reporting procedures.
+We do not currently have a reporting system in place to submit vulnerabilities to in a secure manner. Should Kaguya find a larger customer base, measures will be taken to ensure the protection of our customers by providing appropriate reporting procedures. In the meantime, please feel free to reach out on our Discord server with questions and concerns, <a href="https://discord.gg/rm5c5mCnBM">KodamaChameleon</a>.<img src="https://raw.githubusercontent.com/github/explore/2a3ce46f963399611d8e2054bb0ce9a4b539296a/topics/discord/discord.png" alt="Discord" height="20" style="vertical-align:bottom">
 
-**IMPORTANT: Do not file public issues on GitHub for security vulnerabilities**
+**IMPORTANT: Do not file public issues on GitHub nor in the Discord Server for security vulnerabilities**
  
 ## Confidentiality, integrity and availability
 We consider vulnerabilities leading to the compromise of data confidentiality, elevation of privilege, or integrity to be our highest priority concerns. Availability, in particular in areas relating to DoS and resource exhaustion, is also a serious security concern. The Kaguya developer takes all vulnerabilities, potential vulnerabilities, and suspected vulnerabilities seriously and will investigate them in an urgent and expeditious manner.
