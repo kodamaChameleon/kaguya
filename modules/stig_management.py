@@ -349,6 +349,19 @@ class stig_repo:
                 if len(os.listdir(path)) == 0 and path not in paths:
                     os.rmdir(path)
 
+    # Inventory all checklist data
+    def inventory(self):
+        assets = db_management.asset()
+        contents = index_files(self.fileStructure['stig_checklists']['path'])
+        for ckl in contents:
+
+            # Parse contents of each file
+            with open(ckl, 'rb') as f:
+                ckl_dict = parse_ckl(f.read())
+
+            # Send parsed ckl to asset database
+            assets.import_ckl(ckl_dict)
+
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
 def find_between( s, first, last ):

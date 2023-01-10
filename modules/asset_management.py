@@ -26,7 +26,7 @@ class menu:
 
             # Create menu options
             options = {
-                1: 'Do Something',
+                1: 'Summarize STIG Checklists Content',
                 2: 'Back',
             }
             choice = system.menu('ASSET', options)
@@ -38,7 +38,7 @@ class menu:
                 break
 
             # Download STIG content
-            if options[int(choice)] == 'Do Something':
+            if options[int(choice)] == 'Summarize STIG Checklists Content':
                 None
             
 
