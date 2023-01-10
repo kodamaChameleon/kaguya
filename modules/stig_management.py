@@ -33,6 +33,7 @@ from io import BytesIO
 from zipfile import ZipFile
 import requests # Comment this line out if using on an offline system
 from bs4 import BeautifulSoup # Comment this line out if using on an offline system
+import pandas as pd
 
 # Create STIG management menu
 class menu:
@@ -87,6 +88,7 @@ class menu:
             if options[int(choice)] == 'Sort STIG Repository':
                 repo.sort()
                 repo.clean()
+                repo.report()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
@@ -348,6 +350,42 @@ class stig_repo:
                 path = os.path.join(root, folder)
                 if len(os.listdir(path)) == 0 and path not in paths:
                     os.rmdir(path)
+
+    # Create summary report of checklist contents
+    def report(self):
+
+        # Tally up results
+        wip_ckls = index_files(self.fileStructure['wip']['path'])
+        wip = tally_ckl(wip_ckls)
+        final_ckls = index_files(self.fileStructure['final']['path'])
+        final = tally_ckl(final_ckls)
+
+        # Convert to excel
+        wip_df = pd.DataFrame(wip.items(), columns=['STIG_ID', 'Count'])
+        final_df = pd.DataFrame(final.items(), columns=['STIG_ID', 'Count'])
+        fPath = os.path.join(self.fileStructure['docs']['path'], 'STIG_CKL_Summary.xlsx')
+        with pd.ExcelWriter(fPath) as writer:
+            final_df.to_excel(writer, sheet_name="Final", index=False)
+            wip_df.to_excel(writer, sheet_name="WIP", index=False)
+
+        print("\nSaved summary report to " + fPath)
+            
+# Tally checklists
+def tally_ckl(ckl_list):
+
+    tally = {}
+    for fpath in ckl_list:
+        with open(fpath, 'rb') as f:
+            ckl = f.read()
+        ckl_dict = parse_ckl(ckl)
+        
+        # Handle key already generated
+        if ckl_dict['STIG_INFO']['stigid'] in tally:
+            tally[ckl_dict['STIG_INFO']['stigid']] += 1
+        else:
+            tally[ckl_dict['STIG_INFO']['stigid']] = 1
+    
+    return tally
 
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
@@ -715,4 +753,3 @@ def index_files(rootDir):
             content.add(os.path.join(root, f))
             
     return content
-
