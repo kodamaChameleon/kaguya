@@ -363,7 +363,12 @@ class stig_repo:
         # Convert to excel
         wip_df = pd.DataFrame(wip.items(), columns=['STIG_ID', 'Count'])
         final_df = pd.DataFrame(final.items(), columns=['STIG_ID', 'Count'])
-        fPath = os.path.join(self.fileStructure['docs']['path'], 'STIG_CKL_Summary.xlsx')
+        print('\n' + '-'*48 + '[FINAL]' + '-'*47,
+            final_df.to_string(index=False),
+            '\n' + '-'*49 + '[WIP]' + '-'*48,
+            wip_df.to_string(index=False),
+            sep='\n')
+        fPath = os.path.join(self.fileStructure['docs']['path'], '', 'STIG_CKL_Summary.xlsx')
         with pd.ExcelWriter(fPath) as writer:
             final_df.to_excel(writer, sheet_name="Final", index=False)
             wip_df.to_excel(writer, sheet_name="WIP", index=False)
