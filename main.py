@@ -44,9 +44,8 @@ while True:
   # Create menu options
   options = {
     1: 'STIG Management',
-    2: 'Asset Management',
-    3: 'Update System Variables',
-    4: 'Exit',
+    2: 'Update System Variables',
+    3: 'Exit',
   }
   choice = system.menu('MAIN', options)
 
@@ -59,11 +58,6 @@ while True:
   elif options[int(choice)] == 'STIG Management':
     from modules import stig_management
     stig_management.menu(app)
-
-  # Manage assets
-  elif options[int(choice)] == 'Asset Management':
-    from modules import asset_management
-    asset_management.menu(app)
 
   # Account for changes to system
   elif options[int(choice)] == 'Update System Variables':
