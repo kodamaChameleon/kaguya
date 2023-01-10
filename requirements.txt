@@ -1,6 +1,16 @@
-# Required for all installations
-python==3.11.0
-
-# Not required for offline installations
-requests==2.28.1
+# pip freeze
+beautifulsoup4==4.11.1
 bs4==0.0.1
+certifi==2022.12.7
+charset-normalizer==2.1.1
+et-xmlfile==1.1.0
+idna==3.4
+numpy==1.24.1
+openpyxl==3.0.10
+pandas==1.5.2
+python-dateutil==2.8.2
+pytz==2022.7
+requests==2.28.1
+six==1.16.0
+soupsieve==2.3.2.post1
+urllib3==1.26.13

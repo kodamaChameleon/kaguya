@@ -23,14 +23,17 @@ any attempt to download the 8% non-public files.
 """
 
 # Import external libraries
+from modules import db_management
+from modules import system
 import os
-import requests
-from bs4 import BeautifulSoup
-from io import BytesIO
-from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 import uuid
 import shutil
+from io import BytesIO
+from zipfile import ZipFile
+import requests # Comment this line out if using on an offline system
+from bs4 import BeautifulSoup # Comment this line out if using on an offline system
+import pandas as pd
 
 # Create STIG management menu
 class menu:
@@ -54,23 +57,7 @@ class menu:
             }
 
             # Display menu options
-            print(
-                "\n" + "="*28 + "[STIG MENU]" + "="*28,
-                "\nChoose from the following options:",
-                *[str(k) + ") " + options[k] for k in options],
-                sep = "\n",
-            )
-
-            # Choose from menu options
-            while True:
-                try:
-                    choice = int(input("\nSelect an Option to continue: "))
-                    if choice in options:
-                        break
-                    else:
-                        print("\n" + str(choice) + " is not a valid option.")
-                except:
-                    print("\nSelect an integer number only.")
+            choice = system.menu('STIG', options)
 
             ## Execute menu options
             # Quit program
@@ -101,12 +88,15 @@ class menu:
             if options[int(choice)] == 'Sort STIG Repository':
                 repo.sort()
                 repo.clean()
+                repo.report()
 
 # Create and manage the Information System's local DoD Cyber Exchange STIG and SCAP repository
 class stig_repo:
 
     def __init__(self, rootDir):
-        from modules import db_management
+
+
+
         self.db = db_management.stig()
         self.rootDir = rootDir
         self.url = "https://public.cyber.mil/stigs/downloads/"
@@ -158,6 +148,7 @@ class stig_repo:
 
     # Check DoD Cyber Exchange for available downloads
     def check_available(self):
+
         r = requests.get(self.url)
         soup = BeautifulSoup(r.text, 'html.parser')
         content = {}
@@ -341,7 +332,7 @@ class stig_repo:
                     destination = os.path.join(self.fileStructure['archive']['path'], fName)
             
             # Move files
-            move_file(fPath, destination)
+            system.move_file(fPath, destination)
             
         print("[" + "="*46 + "COMPLETE" + "="*46 + "]")
 
@@ -359,6 +350,47 @@ class stig_repo:
                 path = os.path.join(root, folder)
                 if len(os.listdir(path)) == 0 and path not in paths:
                     os.rmdir(path)
+
+    # Create summary report of checklist contents
+    def report(self):
+
+        # Tally up results
+        wip_ckls = index_files(self.fileStructure['wip']['path'])
+        wip = tally_ckl(wip_ckls)
+        final_ckls = index_files(self.fileStructure['final']['path'])
+        final = tally_ckl(final_ckls)
+
+        # Convert to excel
+        wip_df = pd.DataFrame(wip.items(), columns=['STIG_ID', 'Count'])
+        final_df = pd.DataFrame(final.items(), columns=['STIG_ID', 'Count'])
+        print('\n' + '-'*48 + '[FINAL]' + '-'*47,
+            final_df.to_string(index=False),
+            '\n' + '-'*49 + '[WIP]' + '-'*48,
+            wip_df.to_string(index=False),
+            sep='\n')
+        fPath = os.path.join(self.fileStructure['docs']['path'], '', 'STIG_CKL_Summary.xlsx')
+        with pd.ExcelWriter(fPath) as writer:
+            final_df.to_excel(writer, sheet_name="Final", index=False)
+            wip_df.to_excel(writer, sheet_name="WIP", index=False)
+
+        print("\nSaved summary report to " + fPath)
+            
+# Tally checklists
+def tally_ckl(ckl_list):
+
+    tally = {}
+    for fpath in ckl_list:
+        with open(fpath, 'rb') as f:
+            ckl = f.read()
+        ckl_dict = parse_ckl(ckl)
+        
+        # Handle key already generated
+        if ckl_dict['STIG_INFO']['stigid'] in tally:
+            tally[ckl_dict['STIG_INFO']['stigid']] += 1
+        else:
+            tally[ckl_dict['STIG_INFO']['stigid']] = 1
+    
+    return tally
 
 ## FUNCTION: FIND BETWEEN TWO POINTS IN A STRING
 ## NEEDED DUE TO XML TAGS BEING CONTAINED WITHIN DESCRIPTION TEXT
@@ -726,21 +758,3 @@ def index_files(rootDir):
             content.add(os.path.join(root, f))
             
     return content
-
-# Move files
-def move_file(src, des):
-
-    if src == des:
-        None
-    elif not os.path.exists(des):
-        shutil.move(src,des)
-    else:
-        print('\nMoving ' + src + '...')
-        choice = ''
-        while choice not in ['y', 'n']:
-            choice = input(des + " already exists.\nOverwrite (y/n)? ").lower()
-        if choice == 'y':
-            shutil.move(src,des)
-        else:
-            None
-        print('\n')

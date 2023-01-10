@@ -9,14 +9,16 @@ modules such as the main launch menu and other
 features to include but not limited to manipulating
 the environment file.
 """
-
-# Import dependencies
+# Import external libraries
 import json
+import shutil
+import os
 
 # Create environment class which stores data about how the application will behave
 class environment:
 
     def __init__(self):
+
         self.fileName = "data/.env"
         self.env = self.read_env()
     
@@ -96,5 +98,53 @@ class environment:
             self.write_env(self.env)
             print("\n'" + str(key) + "' set to value '" + str(self.env[key]) + "'")
 
+            # Any cleanup tasks for backwards compatibility
+            if key == 'Information System Name':
+                src = os.path.join('data', oldValue + '.db')
+                des = os.path.join('data', self.env[key] + '.db')
+                move_file(src, des)
         else:
             print("\nCancelled.")
+
+# Standard menu template
+def menu(title, options):
+
+    # Display menu options
+    buf = round((93 - len(title))/2)
+    print(
+        "\n" + "="*buf + "[" + title + " MENU]" + "="*buf,
+        "\nChoose from the following options:",
+        *[str(k) + ") " + options[k] for k in options],
+        sep = "\n",
+    )
+
+    # Choose from menu options
+    while True:
+        try:
+            choice = int(input("\nSelect an Option to continue: "))
+            if choice in options:
+                break
+            else:
+                print("\n" + str(choice) + " is not a valid option.")
+        except:
+            print("\nSelect an integer number only.")
+
+    return choice
+
+# Move files
+def move_file(src, des):
+
+    if src == des:
+        None
+    elif not os.path.exists(des):
+        shutil.move(src,des)
+    else:
+        print('\nMoving ' + src + '...')
+        choice = ''
+        while choice not in ['y', 'n']:
+            choice = input(des + " already exists.\nOverwrite (y/n)? ").lower()
+        if choice == 'y':
+            shutil.move(src,des)
+        else:
+            None
+        print('\n')

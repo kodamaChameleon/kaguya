@@ -17,6 +17,7 @@ The different alpha and beta builds will be compiled from their corresponding ta
 | Version                          | Supported          |
 |----------------------------------|--------------------|
 | Kaguya v1.1.x                    | :white_check_mark: |
+| Kaguya v1.0.x                    | :x:                |
 
 ### Upgrade path and support policy
 Being as Kaguya is still very much in it's infancy, there is no current upgrade and support policy available.
