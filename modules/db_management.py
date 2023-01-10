@@ -163,16 +163,13 @@ class asset:
 
         # Asset table with cpe as foreign key to platform
         q = """
-        CREATE TABLE IF NOT EXISTS assets(
-            [device_type] TEXT,
-            [role] TEXT,
+        CREATE TABLE IF NOT EXISTS stig_ckls(
+            [file_path] TEXT PRIMARY KEY,
             [hostname] TEXT,
+            [fqdn] TEXT,
             [ip] TEXT,
-            [mac] TEXT,
-            [serial] TEXT,
-            [memory_capacity] TEXT,
-            [memory_type] TEXT,
-            PRIMARY KEY([serial], [mac])
+            [stig_id] TEXT,
+            [status] TEXT,
         )
         """
         self.cur.execute(q)
@@ -214,17 +211,21 @@ class asset:
         """
         self.cur.execute(q)
 
-        # Table for combining the various other tables
+        self.con.commit()
+
+    # Import contents of checklist files
+    def import_ckl(self, ckl_dict):
+
         q = """
-        CREATE TABLE IF NOT EXISTS ppsm(
-            [#] TEXT PRIMARY KEY,
-            [hostname] TEXT,
-            [ip] TEXT,
-            [cpe] TEXT,
-            [port] TEXT,
-            [protocol] TEXT
-        )
-        """
-        self.cur.execute(q)
+        INSERT OR REPLACE INTO assets
+        VALUES(
+            :filePath,
+            :hostname,
+            :fqdn,
+            :ip,
+            :stig_id,
+            :status
+        )"""
+        self.cur.execute(q, row)
 
         self.con.commit()
